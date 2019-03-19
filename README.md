@@ -6,7 +6,7 @@ Models for capturing the difference between rule-governed and non-rule-governed 
 
 Preparing for EMNLP 2019.
 
-##Work in progress.
+## Work in progress.
 
 # Organization, Supervisor, and Authors
 
