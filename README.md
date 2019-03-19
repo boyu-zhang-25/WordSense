@@ -30,6 +30,19 @@ This project is to investigate how to capture the difference between rule govern
 # Copyrights
 This project is under the GNU AFFERO GENERAL PUBLIC LICENSE.
 
+# Reference
+@inproceedings{Peters:2018,
+  author={Peters, Matthew E. and  Neumann, Mark and Iyyer, Mohit and Gardner, Matt and Clark, Christopher and Lee, Kenton and Zettlemoyer, Luke},
+  title={Deep contextualized word representations},
+  booktitle={Proc. of NAACL},
+  year={2018}
+}
 
-
-
+@inproceedings{Gardner2017AllenNLP,
+  title={{AllenNLP}: A Deep Semantic Natural Language Processing Platform},
+  author={Matt Gardner and Joel Grus and Mark Neumann and Oyvind Tafjord
+    and Pradeep Dasigi and Nelson F. Liu and Matthew Peters and
+    Michael Schmitz and Luke S. Zettlemoyer},
+  year={2018},
+  booktitle={ACL workshop for NLP Open Source Software}
+}
