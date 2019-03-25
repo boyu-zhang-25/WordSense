@@ -26,8 +26,9 @@ def main():
 	'''
 	elmo = Elmo(options_file, weight_file, 1, dropout=0)
 
-	# test on the first 10 words
-	all_sentences = []
+	# get the first 10 words
+	train_sentences = []
+	train_word_index = []
 	for i in range(1):
 
 		# get the original sentence from EUD
@@ -37,28 +38,35 @@ def main():
 		sentence_number = int(sentence_id.split()[-1]) - 1
 		word_index = int(wsd_data[i].get('Arg.Token')) - 1
 		word_lemma = wsd_data[i].get('Arg.Lemma')
-		sentence = []
+		sentence = train_data[sentence_number]
+		# print(sentence)
+		assert(sentence[word_index].get('lemma') == word_lemma)
 
-		if "train" in sentence_id:
+		# the clean sentence in list
+		clean_sentence = [word_dict.get('lemma') for word_dict in sentence]
+		print(clean_sentence)
+		print(len(clean_sentence))
+		train_sentences.append(clean_sentence)
+		train_word_index.append(word_index)
 
-			sentence = train_data[sentence_number]
-			# print(sentence)
-			assert(sentence[word_index].get('lemma') == word_lemma)
+	# get the ELMo of the first 10 words
+	# use batch_to_ids to convert sentences to character ids
+	# size = [1, 48, 50]
+	# [number of sentences (batch size), max sentence length, max word length]
+	character_ids = batch_to_ids(train_sentences)
+	# print(character_ids)
+	print(character_ids.size())
 
-		elif "test" in sentence_id:
+	embeddings = elmo(character_ids)
 
-			sentence = test_data[sentence_number]
-			# print(sentence)
-			assert(sentence[word_index].get('lemma') == word_lemma)
+	# number of representations specified in line 27
+	print(len(embeddings['elmo_representations']))
 
-		else:
-
-			sentence = dev_data[sentence_number]
-			# print(sentence)
-			assert(sentence[word_index].get('lemma') == word_lemma)
-
-		all_sentences.append(sentence)
-		print(all_sentences)
+	# size = [1, 48, 1024]
+	# 1: number of sentences
+	# 4: max sentence length
+	# 1024: vector length for each word
+	print(embeddings['elmo_representations'][0].size())
 
 if __name__ == '__main__':
 	main()
