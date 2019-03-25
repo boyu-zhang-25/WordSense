@@ -19,7 +19,7 @@ def parse_data():
     # read in tsv by White et. al., 2016
     with open('data/wsd/wsd_eng_ud1.2_10262016.tsv', mode = 'r') as wsd_file:
 
-        tsv_reader = csv.DictReader(wsd_file)
+        tsv_reader = csv.DictReader(wsd_file, delimiter = '\t')
 
         # store the data
         for row in tsv_reader:
@@ -34,7 +34,8 @@ def parse_data():
     train_file = open("data/UD_English-EWT/en_ewt-ud-train.conllu", "r", encoding="utf-8")
     train_data = list(parse_incr(train_file))
     print('Parsed {} training data from UD_English-EWT/en_ewt-ud-train.conllu.'.format(len(train_data)))
-    print(train_data[1363])
+    # 'spring' as the first example in White et. al., 2016
+    # print(train_data[1363])
 
     test_file = open("data/UD_English-EWT/en_ewt-ud-test.conllu", "r", encoding="utf-8")
     test_data = list(parse_incr(test_file))
