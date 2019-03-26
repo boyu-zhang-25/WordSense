@@ -8,6 +8,8 @@ Preparing for EMNLP 2019.
 
 ## Work in progress.
 
+Use `python3 test.py` to run.
+
 # Organization, Supervisor, and Authors
 
 [The Formal And CompuTational Semantics lab (FACTS.lab)](http://factslab.io/)
@@ -26,6 +28,9 @@ This project is to investigate how to capture the difference between rule govern
 1. The [Universal Decompositional Semantics Word Sense dataset](): it contains annotations of nouns in context for word sense based on the senses listed in WordNet, 
 
 2. The [Universal Decompositional Semantics Generics dataset]()
+
+# Requirements
+
 
 # Copyrights
 This project is under the GNU AFFERO GENERAL PUBLIC LICENSE.
