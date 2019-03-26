@@ -24,6 +24,7 @@ def main():
 	train_sentences, train_word_sense, train_word_index, test_sentences, test_word_sense, test_word_index, dev_sentences, dev_word_sense, dev_word_index = get_raw_sentences(wsd_data, train_data, test_data, dev_data)
 
 	# ELMo setup
+	# ELMo is tuned to lower dimension (256) by MLP in Model
 	elmo = ElmoEmbedder()
 	model = Model(elmo_class = elmo)
 

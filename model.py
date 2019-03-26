@@ -55,13 +55,14 @@ class Model(torch.nn.Module):
 		self.mlp_dropout =  nn.Dropout(mlp_dropout) 
 
 		## initialize embedding-tuning MLP for elmo
-		self.tuned_embed_MLP = nn.Linear(self.embedding_size*3, self.tuned_embed_size)
-		self.rnn = nn.LSTM(self.tuned_embed_size, self.rnn_hidden_size, num_layers=2, bidirectional=True)
-		self._init_MLP(self.tuned_embed_size*2, self.MLP_sizes, self.output_size, param="factuality")
+		# 3 * 1024 -> 256 by MLP
+		self.tuned_embed_MLP = nn.Linear(self.embedding_size * 3, self.tuned_embed_size)
+		self.rnn = nn.LSTM(self.tuned_embed_size, self.rnn_hidden_size, num_layers = 2, bidirectional = True)
+		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param="factuality")
 		
 	def _init_MLP(self, input_size, hidden_sizes, output_size, param=None):
 		'''
-		Initialise MLP or regression parameters
+		Initialise MLP
 		'''
 		self.linear_maps[param] = nn.ModuleList()
 
@@ -101,6 +102,8 @@ class Model(torch.nn.Module):
 			
 		## Tune embeddings into lower dim:
 		masks = masks.unsqueeze(2).repeat(1, 1, self.tuned_embed_size).byte()
+		
+		# 1024 -> 256 by MLP dimension reduction
 		embeddings = self._tune_embeddings(embeddings)
 		embeddings = embeddings*masks.float()
 
