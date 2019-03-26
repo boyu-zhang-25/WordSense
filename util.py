@@ -10,7 +10,7 @@ White, A. S., D. Reisinger, K. Sakaguchi, T. Vieira, S. Zhang, R. Rudinger, K. R
 '''
 
 # return the raw sentences from the EUD for train, test, and dev
-def get_raw_sentences(wsd_data, train_data, test_data, dev_data):
+def get_raw_sentences(wsd_data, train_data, test_data, dev_data, sen_num):
 
 	# get the raw sentences, target word index, and target word sense
 	train_sentences = []
@@ -23,8 +23,8 @@ def get_raw_sentences(wsd_data, train_data, test_data, dev_data):
 	dev_word_index = []
 	dev_word_sense = []
 
-	# only test 2 sentences for now
-	for i in range(20):
+	# for test purpose: only load specific amount of data
+	for i in range(sen_num):
 
 		# get the original sentence from EUD
 		sentence_id = wsd_data[i].get('Sentence.ID')

@@ -21,7 +21,7 @@ def main():
 	wsd_data, train_data, test_data, dev_data = parse_data()
 
 	# return the raw sentences from the EUD for train, test, and dev
-	train_sentences, train_word_sense, train_word_index, test_sentences, test_word_sense, test_word_index, dev_sentences, dev_word_sense, dev_word_index = get_raw_sentences(wsd_data, train_data, test_data, dev_data)
+	train_sentences, train_word_sense, train_word_index, test_sentences, test_word_sense, test_word_index, dev_sentences, dev_word_sense, dev_word_index = get_raw_sentences(wsd_data, train_data, test_data, dev_data, 10)
 
 	# ELMo setup
 	# ELMo is tuned to lower dimension (256) by MLP in Model

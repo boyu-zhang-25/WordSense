@@ -10,6 +10,8 @@ Preparing for EMNLP 2019.
 
 Use `python3 test.py` to run.
 
+Or see the `test.ipynb`. 
+
 # Organization, Supervisor, and Authors
 
 [The Formal And CompuTational Semantics lab (FACTS.lab)](http://factslab.io/)
