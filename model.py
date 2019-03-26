@@ -91,7 +91,7 @@ class Model(torch.nn.Module):
 		layer = torch.nn.Linear(input_size, output_size)
 		layer = layer.to(self.device)
 
-		self.layers[param].append(layer)
+		self.layers[param].append(layer)		
 		
 	def _get_embedding(self, sentences):
 		'''
@@ -111,13 +111,13 @@ class Model(torch.nn.Module):
 		embeddings = embeddings.to(self.device)
 		masks = masks.to(self.device)
 
-		## Concatenate ELMO's 3 layers
+		# Concatenate ELMO's 3 layers
 		batch_size = embeddings.size()[0]
 		max_length = embeddings.size()[2]
 		embeddings = embeddings.permute(0,2,1,3) #dim0=batch_size, dim1=num_layers, dim2=sent_len, dim3=embedding-size
 		embeddings = embeddings.contiguous().view(batch_size, max_length, -1)
 			
-		## Tune embeddings into lower dim:
+		# Tune embeddings into lower dim:
 		masks = masks.unsqueeze(2).repeat(1, 1, self.tuned_embed_size).byte()
 		
 		# 1024 -> 256 by MLP dimension reduction
@@ -130,21 +130,19 @@ class Model(torch.nn.Module):
 		
 		embeddings, masks = self._get_embedding(sentences)
 
-		##Run a Bi-LSTM:
+		# Run a Bi-LSTM:
 		embeddings, (hn, cn) = self.rnn(embeddings)
 
-		##convert masked tokens to zero after passing through Bi-lstm
+		# convert masked tokens to zero after passing through Bi-lstm
 		bilstm_masks = masks.repeat(1,1,2)
 		embeddings = embeddings*bilstm_masks.float()
 
-		## Extract index-span embeddings:
+		# Extract index-span embeddings:
 		span_input = self._extract_span_inputs(embeddings, indexes)
 		#print("Span input shape: {}".format(span_input.shape))
 		
-		## Run MLP through the input:
+		# Run MLP through the input:
 		y_hat = self._run_regression(span_input, param="factuality", activation='relu')
-
-		#y_hat = torch.exp(y_hat)*6 - 3.0
 		
 		return y_hat
 		
