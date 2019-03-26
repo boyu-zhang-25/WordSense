@@ -8,9 +8,7 @@ Preparing for EMNLP 2019.
 
 ## Work in progress.
 
-Use `python3 test.py` to run.
-
-Or see the `test.ipynb`. 
+Please check the `test.ipynb` for results so far. 
 
 # Organization, Supervisor, and Authors
 
