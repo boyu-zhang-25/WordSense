@@ -36,7 +36,7 @@ class Model(torch.nn.Module):
 				mlp_dropout = 0,
 				rnn_hidden_size = 256,
 				train_batch_size = 64,
-				MLP_sizes = [300, 300],
+				MLP_sizes = [300],
 				embeddings = None,
 				device = torch.device(type="cpu")):
 		super().__init__()
@@ -87,11 +87,20 @@ class Model(torch.nn.Module):
 			# update dimension
 			input_size = h
 
+			# ReLU activation after linear layer
+			layer = nn.ReLU()
+			layer = layer.to(self.device)
+			self.layers[param].append(layer)            
+
 		# the output layer structure
 		layer = torch.nn.Linear(input_size, output_size)
 		layer = layer.to(self.device)
+		self.layers[param].append(layer)        
 
-		self.layers[param].append(layer)		
+		# run a softmax to normalize
+		layer = torch.nn.Softmax(dim = 0)
+		layer = layer.to(self.device)       
+		self.layers[param].append(layer)        
 		
 	def _get_embedding(self, sentences):
 		'''
@@ -155,7 +164,7 @@ class Model(torch.nn.Module):
 		
 		# Run MLP through the input and determine the sense
 		# batch_size words, each has length 10 for 10 possible senses
-		y_hat = self._run_fine_tune_MLP(new_word_embs, param = 'WSD', activation= 'relu')
+		y_hat = self._run_fine_tune_MLP(new_word_embs, param = 'WSD')
 		
 		return y_hat
 		
@@ -171,7 +180,7 @@ class Model(torch.nn.Module):
 	def _tune_embeddings(self, embeddings):
 		return torch.tanh(self.tuned_embed_MLP(embeddings))
 	
-	def _run_fine_tune_MLP(self, new_word_embs, param = None, activation = None):
+	def _run_fine_tune_MLP(self, new_word_embs, param = None):
 		
 		'''
 		Runs MLP on all word embeddings
@@ -181,18 +190,7 @@ class Model(torch.nn.Module):
 		results = []
 
 		for word_vec in new_word_embs:
-			for i, layer in enumerate(self.layers[param]):
-				# determine if there is activation
-				if i:
-					if activation == "sigmoid":
-						word_vec = torch.sigmoid(word_vec)
-						word_vec = self.mlp_dropout(word_vec)
-					elif activation == "relu":
-						word_vec = F.relu(word_vec)
-						word_vec = self.mlp_dropout(word_vec)                  
-					else:  ##else tanh
-						word_vec = torch.tanh(word_vec)
-						word_vec = self.mlp_dropout(word_vec)
+			for layer in self.layers[param]:
 
 				# get the layer output
 				word_vec = layer(word_vec)
@@ -201,12 +199,9 @@ class Model(torch.nn.Module):
 		print('\nOutput of the fine-tuning MLP: \nTotal {} words. \nEach word has a 10-d vector output as probabilities distributing over its senses: {}'.format(len(results), results[0].size()))
 		return results
 
-class BaseTrainer(object):
-	'''
 
-	data_name = 'megaverid' or 'ithappen'
+class Trainer(object):
 
-	'''
 	def __init__(self, 
 				 optimizer_class = torch.optim.Adam,
 				 optim_wt_decay=0.,
@@ -259,20 +254,16 @@ class BaseTrainer(object):
 
 
 	def _initialize_trainer_model(self):
-		self._model = BaseModel(device=self.device,
-											 **self._init_kwargs)
-		
+		self._model = Model(device = self.device, **self._init_kwargs)
 		self._model = self._model.to(self.device)
-		
 
 	def _custom_loss(self, predicted, actual, pretrain_x, pretrain_actual):
 		'''
-
 		Inputs:
-		```````1. predicted: model predicted values
-				2. actual: actual values
-				3. pretrain_data: 
-				4. pretrain_preds: predictions on pretrain_data based on original pretraining
+		1. predicted: model predicted values
+		2. actual: actual values
+		3. pretrain_data: 
+		4. pretrain_preds: predictions on pretrain_data based on original pretraining
 
 		'''
 		actual_torch = torch.from_numpy(np.array(actual)).float().to(self.device)
@@ -292,7 +283,8 @@ class BaseTrainer(object):
 		return domain_loss + beta*generic_loss
 
 	
-	def fit(self, train_X, train_Y, dev, pretrain_x, pretrain_actual, **kwargs):
+	def train(self, train_X, train_Y, dev, pretrain_x, pretrain_actual, **kwargs):
+
 		self._X,  self._Y = train_X, train_Y
 		
 		self.pretrain_x = pretrain_x
@@ -303,8 +295,8 @@ class BaseTrainer(object):
 			
 		self._initialize_trainer_model() 
 		
-		print("########## .   Model Parameters   ##############")
-		for name,param in self._model.named_parameters():     
+		print("##########    Model Parameters   ##############")
+		for name, param in self._model.named_parameters():     
 			if param.requires_grad:
 				print(name, param.shape)
 		print("##############################################") 

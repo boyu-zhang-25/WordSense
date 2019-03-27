@@ -20,6 +20,11 @@ def print_fine_tuning_MLP(model, param):
 	for module in module_dict:
 		print(module)
 
+	for param in model.parameters():
+		if param.requires_grad:
+			print(param.size())
+
+	print(model)
 	print('**********************************************************************')
 
 # return the raw sentences from the EUD for train, test, and dev
