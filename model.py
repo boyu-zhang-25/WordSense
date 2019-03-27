@@ -34,7 +34,7 @@ class Model(torch.nn.Module):
 				elmo_class = None,
 				tuned_embed_size = 256,
 				mlp_dropout = 0,
-				rnn_hidden_size = 300,
+				rnn_hidden_size = 256,
 				train_batch_size = 64,
 				MLP_sizes = [300, 300],
 				embeddings = None,
@@ -105,7 +105,7 @@ class Model(torch.nn.Module):
 		# get ELMo embeddings of the sentences
 		embeddings, masks = self.elmo_class.batch_to_embeddings(sentences)
 		# torch.Size([number of sentences, 3 (layers), max sentence length, 1024 (word vector length)])
-		print('Original embeddings size: {}'.format(embeddings.size()))
+		print('\nOriginal ELMo embeddings size: {}, mask: {}'.format(embeddings.size(), masks.size()))
 
 		# pass to CUDA
 		embeddings = embeddings.to(self.device)
@@ -114,90 +114,92 @@ class Model(torch.nn.Module):
 		# Concatenate ELMO's 3 layers
 		batch_size = embeddings.size()[0]
 		max_length = embeddings.size()[2]
-		embeddings = embeddings.permute(0,2,1,3) #dim0=batch_size, dim1=num_layers, dim2=sent_len, dim3=embedding-size
-		embeddings = embeddings.contiguous().view(batch_size, max_length, -1)
-			
-		# Tune embeddings into lower dim:
+
+		# old: dim0 = batch_size, dim1 = num_layers, dim2 = max_sent_len, dim3 = word_embedding_size
+		# new: [max_sent_len, batch_size, num_layers, word_embedding_size]
+		embeddings = embeddings.permute(2, 0, 1, 3)
+		masks = masks.permute(1, 0)
+
+		# concatenate 3 layers and reshape
+		# [max_sent_len, batch_size, 3 * 1024]
+		embeddings = embeddings.contiguous().view(max_length, batch_size, -1)
+
+		# Tune embeddings into lower dim
 		masks = masks.unsqueeze(2).repeat(1, 1, self.tuned_embed_size).byte()
 		
-		# 1024 -> 256 by MLP dimension reduction
+		# 3 * 1024 -> 256 by MLP dimension reduction
 		embeddings = self._tune_embeddings(embeddings)
-		embeddings = embeddings*masks.float()
+		embeddings = embeddings * masks.float()
 
+		print('Embedding size after dimension reduction: {}, mask: {}'.format(embeddings.size(), masks.size()))
 		return embeddings, masks
 
-	def forward(self, sentences, indexes):
+	# pass the selected sentence to bi-LSTM before fine-tuning MLP
+	def forward(self, sentences, word_idx):
 		
 		embeddings, masks = self._get_embedding(sentences)
 
-		# Run a Bi-LSTM:
+		# Run a Bi-LSTM and get the results
+		# (seq_len, batch, num_directions * hidden_size)
 		embeddings, (hn, cn) = self.rnn(embeddings)
 
 		# convert masked tokens to zero after passing through Bi-lstm
-		bilstm_masks = masks.repeat(1,1,2)
-		embeddings = embeddings*bilstm_masks.float()
+		bilstm_masks = masks.repeat(1, 1, 2)
+		# [sentence_length, batch_size, word_vector_length]
+		embeddings = embeddings * bilstm_masks.float()
+		print('\nEmbedding size after bi-LSTM: {}'.format(embeddings.size()))
 
-		# Extract index-span embeddings:
-		span_input = self._extract_span_inputs(embeddings, indexes)
-		#print("Span input shape: {}".format(span_input.shape))
+		# Extract the new word embeddings by index
+		# batch_size words, each has length 512
+		new_word_embs = self._extract_word(embeddings, word_idx)
 		
-		# Run MLP through the input:
-		y_hat = self._run_regression(span_input, param="factuality", activation='relu')
+		# Run MLP through the input and determine the sense
+		# batch_size words, each has length 10 for 10 possible senses
+		y_hat = self._run_fine_tune_MLP(new_word_embs, param = 'WSD', activation= 'relu')
 		
 		return y_hat
 		
-	def _extract_span_inputs(self, embeddings, span_idxs):
+	def _extract_word(self, embeddings, word_idx):
 		'''
-		Extract embeddings for a span in the sentence
+		Extract the new word embeddings by index
 		
-		For a mini-batch, keeps the length of span equal to the length 
-		max span in that batch
 		'''
-		batch_size = embeddings.size()[0]
-		span_lengths = [len(x) for x in span_idxs]
-		max_span_len = max(span_lengths)
-		
-		if self.vocab: #glove
-			span_embeds = torch.zeros((batch_size, max_span_len, self.embedding_size*2), 
-								  dtype=torch.float, device=self.device)
-		else: #elmo
-			span_embeds = torch.zeros((batch_size, max_span_len, self.tuned_embed_size*2), 
-								  dtype=torch.float, device=self.device)
-		
-		for sent_idx in range(batch_size):
-			m=0
-			for span_idx in span_idxs[sent_idx]:
-				span_embeds[sent_idx][m] = embeddings[sent_idx][span_idx]
-				m+=1
-				
-		return span_embeds
+		batch_size = embeddings.size()[1]
+		new_word_embs = [embeddings[word_idx[i], i, :] for i in range(batch_size)]
+		return new_word_embs
 	
 	def _tune_embeddings(self, embeddings):
 		return torch.tanh(self.tuned_embed_MLP(embeddings))
 	
-	def _run_regression(self, h_last, param=None, activation=None):
+	def _run_fine_tune_MLP(self, new_word_embs, param = None, activation = None):
 		
 		'''
-		Runs MLP on input
+		Runs MLP on all word embeddings
 		
 		Note that for n hidden layers, there would be n+1 layers
 		'''
+		results = []
 
-		for i, linear_map in enumerate(self.layers[param]):
-			if i:
-				if activation == "sigmoid":
-					h_last = torch.sigmoid(h_last)
-					h_last = self.mlp_dropout(h_last)
-				elif activation == "relu":
-					h_last = F.relu(h_last)
-					h_last = self.mlp_dropout(h_last)                  
-				else:  ##else tanh
-					h_last = torch.tanh(h_last)
-					h_last = self.mlp_dropout(h_last)
+		for word_vec in new_word_embs:
+			for i, layer in enumerate(self.layers[param]):
+				# determine if there is activation
+				if i:
+					if activation == "sigmoid":
+						word_vec = torch.sigmoid(word_vec)
+						word_vec = self.mlp_dropout(word_vec)
+					elif activation == "relu":
+						word_vec = F.relu(word_vec)
+						word_vec = self.mlp_dropout(word_vec)                  
+					else:  ##else tanh
+						word_vec = torch.tanh(word_vec)
+						word_vec = self.mlp_dropout(word_vec)
 
-			h_last = linear_map(h_last)
-			
-		return h_last
+				# get the layer output
+				word_vec = layer(word_vec)
+			results.append(word_vec)
+
+		print('\nOutput of the fine-tuning MLP: \nTotal {} words. \nEach word has a 10-d vector output as probabilities distributing over its senses: {}'.format(len(results), results[0].size()))
+		return results
 
 class BaseTrainer(object):
 	'''
