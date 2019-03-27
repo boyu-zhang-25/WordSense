@@ -12,7 +12,7 @@ White, A. S., D. Reisinger, K. Sakaguchi, T. Vieira, S. Zhang, R. Rudinger, K. R
 # print the structure of the fine-tuning MLP for illustration
 def print_fine_tuning_MLP(model, param):
 
-	print('******************* fine-tuning MLP structure ***********************')
+	print('\n******************* fine-tuning MLP structure ***********************')
 
 	print('Current Task: {}'.format(param))
 	module_dict = model.layers[param]
@@ -20,12 +20,16 @@ def print_fine_tuning_MLP(model, param):
 	for module in module_dict:
 		print(module)
 
-	for param in model.parameters():
+	print('**********************************************************************')
+
+def print_whole_model(model):
+
+	print('\nAll parameters in the model:')
+	for name, param in model.named_parameters():
 		if param.requires_grad:
-			print(param.size())
+			print(name, param.size())
 
 	print(model)
-	print('**********************************************************************')
 
 # return the raw sentences from the EUD for train, test, and dev
 def get_raw_sentences(wsd_data, train_data, test_data, dev_data, sen_num):
@@ -93,8 +97,8 @@ def get_raw_sentences(wsd_data, train_data, test_data, dev_data, sen_num):
 			dev_word_index.append(word_index)
 			dev_word_sense.append(word_sense)
 
-	print('Parsed {} sentences'.format(sen_num))
-	print('******************* Data Example ***********************')
+	print('Processed {} sentences for test purpose.'.format(sen_num))
+	print('\n******************* Data Example ***********************')
 	print('Sentence: {}'.format(train_sentences[0]))
 	print('Target Word Index: {}'.format(train_word_index[0]))
 	print('Target Word Sense (index in WordNet 3.1): {}'.format(train_word_sense[0]))
@@ -132,11 +136,11 @@ def parse_data():
 
 	test_file = open("data/UD_English-EWT/en_ewt-ud-test.conllu", "r", encoding="utf-8")
 	test_data = list(parse_incr(test_file))
-	print('Parsed {} testing data from UD_English-EWT/en_ewt-ud-test.conllu'.format(len(test_data)))
+	print('Parsed {} testing data from UD_English-EWT/en_ewt-ud-test.conllu.'.format(len(test_data)))
 
 	dev_file = open("data/UD_English-EWT/en_ewt-ud-dev.conllu", "r", encoding="utf-8")
 	dev_data = list(parse_incr(dev_file))
-	print('Parsed {} dev data from UD_English-EWT/en_ewt-ud-dev.conllu'.format(len(dev_data)))
+	print('Parsed {} dev data from UD_English-EWT/en_ewt-ud-dev.conllu.'.format(len(dev_data)))
 
 	return wsd_data, train_data, test_data, dev_data
 

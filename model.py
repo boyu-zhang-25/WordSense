@@ -34,7 +34,7 @@ class Model(torch.nn.Module):
 				elmo_class = None,
 				tuned_embed_size = 256,
 				mlp_dropout = 0,
-				rnn_hidden_size = 256,
+				lstm_hidden_size = 256,
 				train_batch_size = 64,
 				MLP_sizes = [300],
 				embeddings = None,
@@ -47,7 +47,7 @@ class Model(torch.nn.Module):
 		self.embedding_size = embedding_size
 		self.device = device
 		self.MLP_sizes = MLP_sizes # sizes of the fine-tuning MLP
-		self.rnn_hidden_size = rnn_hidden_size
+		self.lstm_hidden_size = lstm_hidden_size
 		self.embeddings_data = embeddings
 
 		## initialize MLP layers
@@ -57,10 +57,10 @@ class Model(torch.nn.Module):
 		## initialize embedding-tuning MLP for elmo
 		# for each sentence:
 		# 3 * 1024 ELMo -> 1 * 256 by 1-layer MLP
-		self.tuned_embed_MLP = nn.Linear(self.embedding_size * 3, self.tuned_embed_size)
+		self.dimension_reduction_MLP = nn.Linear(self.embedding_size * 3, self.tuned_embed_size)
 
 		# construct a LSTM on top of ELMo
-		self.rnn = nn.LSTM(self.tuned_embed_size, self.rnn_hidden_size, num_layers = 2, bidirectional = True)
+		self.wsd_lstm = nn.LSTM(self.tuned_embed_size, self.lstm_hidden_size, num_layers = 2, bidirectional = True)
 
 		# build a 3-layer MLP on top of ELMo for fine-tuning
 		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "WSD")
@@ -150,7 +150,7 @@ class Model(torch.nn.Module):
 
 		# Run a Bi-LSTM and get the results
 		# (seq_len, batch, num_directions * hidden_size)
-		embeddings, (hn, cn) = self.rnn(embeddings)
+		embeddings, (hn, cn) = self.wsd_lstm(embeddings)
 
 		# convert masked tokens to zero after passing through Bi-lstm
 		bilstm_masks = masks.repeat(1, 1, 2)
@@ -178,7 +178,7 @@ class Model(torch.nn.Module):
 		return new_word_embs
 	
 	def _tune_embeddings(self, embeddings):
-		return torch.tanh(self.tuned_embed_MLP(embeddings))
+		return torch.tanh(self.dimension_reduction_MLP(embeddings))
 	
 	def _run_fine_tune_MLP(self, new_word_embs, param = None):
 		
