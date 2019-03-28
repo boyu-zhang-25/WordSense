@@ -20,30 +20,25 @@ def print_fine_tuning_MLP(model, param):
 	for module in module_dict:
 		print(module)
 
-	print('**********************************************************************')
+		print('**********************************************************************')
 
-def print_whole_model(model):
+		def print_whole_model(model):
 
-	print('\nAll parameters in the model:')
-	for name, param in model.named_parameters():
-		if param.requires_grad:
-			print(name, param.size())
+			print('\nAll parameters in the model:')
+			for name, param in model.named_parameters():
+				if param.requires_grad:
+					print(name, param.size())
 
-	print(model)
+					print(model)
 
-# return the raw sentences from the EUD for train, test, and dev
+# return the raw sentences from the EUD for train, test, and dev dataset
 def get_raw_sentences(wsd_data, train_data, test_data, dev_data, sen_num):
 
-	# get the raw sentences, target word index, and target word sense
-	train_sentences = []
-	train_word_index = []
-	train_word_sense = []
-	test_sentences = []
-	test_word_index = []
-	test_word_sense = []
-	dev_sentences = []
-	dev_word_index = []
-	dev_word_sense = []
+	# get the raw sentences, target word index, annotator response, and target word sense
+	train_sentences, train_word_index, train_word_sense= []
+	test_sentences, test_word_index, test_word_sense = []
+	dev_sentences, dev_word_index, dev_word_sense = []
+	train_response, test_response, dev_response = []
 
 	# for test purpose: only load specific amount of data
 	for i in range(sen_num):
@@ -57,11 +52,12 @@ def get_raw_sentences(wsd_data, train_data, test_data, dev_data, sen_num):
 		word_index = int(wsd_data[i].get('Arg.Token')) - 1
 		word_lemma = wsd_data[i].get('Arg.Lemma')
 		word_sense = wsd_data[i].get('Synset')
+		response = wsd_data[i].get('Sense.Response')
 
 		if "train" in sentence_id: 
 			sentence = train_data[sentence_number]
 			# print(sentence)
-			assert(sentence[word_index].get('lemma') == word_lemma)
+			# assert(sentence[word_index].get('lemma') == word_lemma)
 
 			# the clean sentence in list
 			clean_sentence = [word_dict.get('lemma') for word_dict in sentence]
@@ -74,7 +70,7 @@ def get_raw_sentences(wsd_data, train_data, test_data, dev_data, sen_num):
 		elif "test" in sentence_id:
 			sentence = test_data[sentence_number]
 			# print(sentence)
-			assert(sentence[word_index].get('lemma') == word_lemma)
+			# assert(sentence[word_index].get('lemma') == word_lemma)
 
 			# the clean sentence in list
 			clean_sentence = [word_dict.get('lemma') for word_dict in sentence]
@@ -87,7 +83,7 @@ def get_raw_sentences(wsd_data, train_data, test_data, dev_data, sen_num):
 		else:
 			sentence = dev_data[sentence_number]
 			# print(sentence)
-			assert(sentence[word_index].get('lemma') == word_lemma)
+			# assert(sentence[word_index].get('lemma') == word_lemma)
 
 			# the clean sentence in list
 			clean_sentence = [word_dict.get('lemma') for word_dict in sentence]
@@ -148,5 +144,5 @@ def parse_data():
 def main():
 	wsd_data, train_data, test_data, dev_data = parse_data()
 
-if __name__ == '__main__':
-	main()
+	if __name__ == '__main__':
+		main()

@@ -29,7 +29,7 @@ from allennlp.commands.elmo import ElmoEmbedder
 # model for fine-tuning with ELMo
 class Model(torch.nn.Module):
 	def __init__(self, 
-				output_size = 10, # max 10 possible different senses
+				all_senses = None, # all senses for all words, used to customize the output layer
 				embedding_size = 1024,
 				elmo_class = None,
 				tuned_embed_size = 256,
@@ -41,7 +41,7 @@ class Model(torch.nn.Module):
 				device = torch.device(type="cpu")):
 		super().__init__()
 		
-		self.output_size = output_size
+		self.all_senses = all_senses
 		self.elmo_class = elmo_class
 		self.tuned_embed_size = tuned_embed_size 
 		self.embedding_size = embedding_size
@@ -63,14 +63,20 @@ class Model(torch.nn.Module):
 		self.wsd_lstm = nn.LSTM(self.tuned_embed_size, self.lstm_hidden_size, num_layers = 2, bidirectional = True)
 
 		# build a 3-layer MLP on top of ELMo for fine-tuning
-		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "WSD")
+		# output size varies with word
+		# specified by the 'all_senses' dict
+		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.all_senses, param = "WSD")
 		
-	def _init_MLP(self, input_size, hidden_sizes, output_size, param = None):
+	def _init_MLP(self, input_size, hidden_sizes, all_senses, param = None):
 		'''
 		Initialize a 3-layer MLP on top of ELMo
 		w1: input_size * hidden_sizes[0]
 		w2: hidden_sizes[0] * hidden_sizes[1]
 		w3: hidden_sizes[1] * output_size
+
+		Output sizes are different for each word
+		since they all have different numbers of senses
+		specified by the 'all_senses' dict
 		'''
 
 		# dict for fine-tuning MLP structures
@@ -92,15 +98,13 @@ class Model(torch.nn.Module):
 			layer = layer.to(self.device)
 			self.layers[param].append(layer)            
 
-		# the output layer structure
-		layer = torch.nn.Linear(input_size, output_size)
-		layer = layer.to(self.device)
-		self.layers[param].append(layer)        
+		# customize output layers for each word
+		# since all words have different numbers of senses
+		self.output_layers = nn.ModuleDict()
+		for word in all_senses.keys():
 
-		# run a softmax to normalize
-		layer = torch.nn.Softmax(dim = 0)
-		layer = layer.to(self.device)       
-		self.layers[param].append(layer)        
+			# output size = number of senses
+			self.output_layers[word] = torch.nn.Linear(input_size, len(all_senses[word]))
 		
 	def _get_embedding(self, sentences):
 		'''
@@ -124,7 +128,7 @@ class Model(torch.nn.Module):
 		batch_size = embeddings.size()[0]
 		max_length = embeddings.size()[2]
 
-		# old: dim0 = batch_size, dim1 = num_layers, dim2 = max_sent_len, dim3 = word_embedding_size
+		# old: [batch_size, num_layers, max_sent_len, word_embedding_size]
 		# new: [max_sent_len, batch_size, num_layers, word_embedding_size]
 		embeddings = embeddings.permute(2, 0, 1, 3)
 		masks = masks.permute(1, 0)
@@ -146,6 +150,11 @@ class Model(torch.nn.Module):
 	# pass the selected sentence to bi-LSTM before fine-tuning MLP
 	def forward(self, sentences, word_idx):
 		
+		# preserve word lemma for future use
+		word_lemma = [sentences[i][word_idx[i]] for i in range(len(word_idx))]
+		# print("word lemma: {}".format(word_lemma))
+
+		# get the dimension-reduced ELMo embeddings
 		embeddings, masks = self._get_embedding(sentences)
 
 		# Run a Bi-LSTM and get the results
@@ -164,14 +173,13 @@ class Model(torch.nn.Module):
 		
 		# Run MLP through the input and determine the sense
 		# batch_size words, each has length 10 for 10 possible senses
-		y_hat = self._run_fine_tune_MLP(new_word_embs, param = 'WSD')
+		y_hat = self._run_fine_tune_MLP(new_word_embs, word_lemma, param = 'WSD')
 		
 		return y_hat
 		
 	def _extract_word(self, embeddings, word_idx):
 		'''
 		Extract the new word embeddings by index
-		
 		'''
 		batch_size = embeddings.size()[1]
 		new_word_embs = [embeddings[word_idx[i], i, :] for i in range(batch_size)]
@@ -180,23 +188,30 @@ class Model(torch.nn.Module):
 	def _tune_embeddings(self, embeddings):
 		return torch.tanh(self.dimension_reduction_MLP(embeddings))
 	
-	def _run_fine_tune_MLP(self, new_word_embs, param = None):
+	def _run_fine_tune_MLP(self, new_word_embs, word_lemma, param = None):
 		
 		'''
 		Runs MLP on all word embeddings
-		
 		Note that for n hidden layers, there would be n+1 layers
+		sizes of the output layer for each word are different
 		'''
 		results = []
+		for idx, word_vec in enumerate(new_word_embs):
 
-		for word_vec in new_word_embs:
+			# run the fine-tuning MLP (before output layer)
+			# print('word_vec: {}'.format(word_vec))
 			for layer in self.layers[param]:
-
-				# get the layer output
 				word_vec = layer(word_vec)
-			results.append(word_vec)
 
-		print('\nOutput of the fine-tuning MLP: \nTotal {} words. \nEach word has a 10-d vector output as probabilities distributing over its senses: {}'.format(len(results), results[0].size()))
+			# customized output layer
+			word = word_lemma[idx]
+			word_vec = self.output_layers[word](word_vec)
+
+			# element-wise sigmoid
+			word_vec = torch.sigmoid(word_vec)
+			results.append(word_vec)
+			print('\nWord lemma: {}\nEmbedding vector (distributions over all its senses): {}\nAll its senses: {}'.format(word_lemma[idx], word_vec, self.all_senses[word]))
+
 		return results
 
 
