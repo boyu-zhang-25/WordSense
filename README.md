@@ -1,6 +1,6 @@
 # Word Sense Embedding by Expectation Maximization
 
-Capturing the difference between rule-governed and non-rule-governed word sense ambiguity by neural models. Projecting contextual embeddings to a new vector space of semantics by Expectation Maximization. 
+Capturing the difference between various word sense ambiguities by neural models. Projecting contextual embeddings to a new vector space of meanings by Expectation Maximization. 
 
 Preparing for EMNLP 2019.
 
