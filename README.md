@@ -8,11 +8,13 @@ Preparing for EMNLP 2019.
 
 Please check the `test.ipynb` for results so far. 
 
-# Organization, Supervisor, and Authors
+# Supervisor and Authors
 
 [The Formal And CompuTational Semantics lab (FACTS.lab)](http://factslab.io/)
 
 Director and Supervisor: [Prof. Aaron Steven White](http://aaronstevenwhite.io/)
+
+and me :)
 
 University of Rochester, Spring 2019
 
