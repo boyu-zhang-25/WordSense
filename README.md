@@ -1,8 +1,6 @@
-# WSD
+# Word Sense Embedding by Expectation Maximization
 
-WSD: Word Sense Disambiguation
-
-Capturing the difference between rule-governed and non-rule-governed word sense ambiguity from contextual embeddings. 
+Capturing the difference between rule-governed and non-rule-governed word sense ambiguity by neural models. Projecting contextual embeddings to a new vector space of semantics by Expectation Maximization. 
 
 Preparing for EMNLP 2019.
 
