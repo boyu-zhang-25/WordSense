@@ -1,6 +1,6 @@
-# Word Sense Embedding by Expectation Maximization
+# Non-parametric Joint Optimization for Word Sense Embedding
 
-Capturing the difference between various word sense ambiguities by neural models. Projecting contextual embeddings to a new vector space of meanings by Expectation Maximization. 
+Code for the paper *Non-parametric Joint Optimization for Word Sense Embedding*. 
 
 Preparing for EMNLP 2019.
 
@@ -10,24 +10,33 @@ Please check the `test.ipynb` for results so far.
 
 # Supervisor and Authors
 
-[The Formal And CompuTational Semantics lab (FACTS.lab)](http://factslab.io/)
-
 Director and Supervisor: [Prof. Aaron Steven White](http://aaronstevenwhite.io/)
 
 and me :)
 
+[The Formal And CompuTational Semantics lab (FACTS.lab)](http://factslab.io/)
+
 University of Rochester, Spring 2019
 
 # Intro
-Many words have multiple potential senses. Ambiguous words like “bank” – which has both “financial institution” and “side of a river” senses – are a typical case of this; words that undergo regular polysemy are another. A classic case of this is what is the unit-type ambiguity – e.g. “book” can be used to refer either to a particular physical instantiation of a book or to the abstract contents of a book. This latter sort of ambiguity seems to be rule-governed in an important way – e.g. many objects that contain informational content undergo it.
 
-This project is to investigate how to capture the difference between rule governed ambiguity and non-rule governed ambiguity in a computational model. This model will predict word senses and genericity based on the model’s hidden states and build a notion of regular polysemy rule into the relationship between different word senses. 
+Many words have multiple potential senses. Ambiguous words like “bank” – which has both “financial institution” and “side of a river” senses – are a typical case of this; words that undergo regular polysemy are another. Utilizing distributed embeddings to represent words and contexts are shown to be a promising future solution to word sense disambiguation (WSD) tasks.
+
+Previous work on WSD are based on computing independent distributed embeddings for the contexts of the target ambiguous word in large corpus and clustering them, which is often referred to as *multi-prototype* ([Mooney et. al, 2010](https://www.aclweb.org/anthology/N10-1013)). [Neelakantan et al. (2014)](https://arxiv.org/abs/1504.06654) was the first to extend the multi-prototype models to joint learing: 'the crucial difference is that word sense discrimination and learning embeddings are performed jointly by predicting the sense of the word using the current parameter estimates.'
+
+Here we propose a whole new model for WSD. Instead of clustering contextual embeddings to represent different sense, for each context with a target word, we fused some knowledge-based approach to our distributional model -- the literal sense definition from the [WordNet 3.1](https://wordnet.princeton.edu/). We first project the target word embedding to the vector space of meaning (ELMo + MLP), and then encode the right answer of the word sense (from WordNet) to the same vector space of meaning by a simple seq2seq model. Second, we compute the distance between these two vectors, calculating the loss. Third, we perform a gradient update on the embedding of both the word embedding and the truth embedding. 
+
+The goal of this joint optimization is to increase the similarity between the word embedding and the truth embedding. We jointly improved:
+
+1. The ability of the model to project words sense to meaning space accurately. 
+
+2. The ability of the model to locate accurate ground truth embedding for definitions in the WordNet. 
+
+The metaphor here is that *step 1* is assigning word to a cluster, and *step 2* is correct the mean of the clusters. Specifically, BP for the sense embedding on top of ELMo will be a regular optimization, while the gradient descent for ground truth encoder shall be updated with a normalized loss per example. This is means one particular word contributes certain amount of correction normalized by the size of all words, which is similar to calculating new means in Expectation-Maximization algorithms. 
 
 # Corpora
 
-1. The [Universal Decompositional Semantics Word Sense dataset](): it contains annotations of nouns in context for word sense based on the senses listed in WordNet, 
-
-2. The [Universal Decompositional Semantics Generics dataset]()
+1. The [Universal Decompositional Semantics Word Sense dataset](http://decomp.io/projects/word-sense/): it contains annotations of nouns in context for word sense based on the senses listed in the WordNet.
 
 # Requirements
 
