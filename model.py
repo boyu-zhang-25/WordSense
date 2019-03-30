@@ -40,7 +40,7 @@ class Model(torch.nn.Module):
 				mlp_dropout = 0,
 				lstm_hidden_size = 256,
 				train_batch_size = 64,
-				MLP_sizes = 512, # 1 hidden layer for fine-tuning
+				MLP_sizes = [512], # 1 hidden layer for fine-tuning
 				embeddings = None,
 				device = device):
 		super().__init__()
@@ -56,7 +56,7 @@ class Model(torch.nn.Module):
 
 		# sizes of the fine-tuning MLP
 		self.MLP_sizes = MLP_sizes 
-
+		self.output_size = output_size
 
 		self.lstm_hidden_size = lstm_hidden_size
 		self.embeddings_data = embeddings
@@ -73,7 +73,7 @@ class Model(torch.nn.Module):
 		self.wsd_lstm = nn.LSTM(self.tuned_embed_size, self.lstm_hidden_size, num_layers = 2, bidirectional = True)
 
 		# build a 2-layer MLP on top of ELMo for fine-tuning: [512 * 300, ]
-		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.all_senses, param = "word_sense")
+		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "word_sense")
 		
 	def _init_MLP(self, input_size, hidden_sizes, output_size, param = None):
 		'''
@@ -201,6 +201,6 @@ class Model(torch.nn.Module):
 				word_vec = layer(word_vec)
 
 			results.append(word_vec)
-			print('\nWord lemma: {}\nWord sense embedding: {}\nAll its senses: {}'.format(word_lemma[idx], word_vec, self.all_senses[word]))
+			print('\nWord lemma: {}\nWord sense embedding: {}\nAll its senses: {}'.format(word_lemma[idx], word_vec, self.all_senses[word_lemma[idx]]))
 
 		return results
