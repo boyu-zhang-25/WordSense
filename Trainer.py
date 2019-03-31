@@ -61,7 +61,6 @@ class Trainer(object):
 			self.regularization = L1Loss()
 		elif regularization == "smoothl1":
 			self.regularization = SmoothL1Loss()
-
 		else:
 			self.regularization = None
 
