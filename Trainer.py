@@ -171,7 +171,7 @@ class Trainer(object):
 				for i, response in enumerate(self.train_Y[idx]):
 
 					definition_vec = self._model.definition_embeddings[word_lemma][:, i]
-					print('size: {}'.format(definition_vec.size()))
+					# print('size: {}'.format(definition_vec.size()))
 					sense_vec = sense_vec.view(self._model.output_size, -1)
 					# print('res: {}'.format(response))
 
