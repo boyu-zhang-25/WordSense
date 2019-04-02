@@ -50,7 +50,7 @@ class Model(nn.Module):
 
 		## initialize fine-tuning MLP layers
 		self.layers = nn.ModuleDict()
-		self.mlp_dropout =  nn.Dropout(mlp_dropout) 
+		self.mlp_dropout = nn.Dropout(mlp_dropout) 
 
 		# dimension reduction for elmo
 		# 3 * 1024 ELMo -> 1 * 256 
@@ -63,27 +63,23 @@ class Model(nn.Module):
 		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "word_sense")
 
 		# randomly initialize all vectors for definition embeddings
-		self.definition_embeddings = {}
+		def_dict = self._init_definition_embeddings(self.output_size, param = "definition_embedding")
+		self.definition_embeddings = nn.ParameterDict(def_dict)
+
+	# initialize all the definition embeddings for all words
+	# put into a matrix for each word
+	def _init_definition_embeddings(self, output_size, param = None):
+
+		def_dict = {}
+
 		for word in self.all_senses.keys():
 
-			current_def_embd = []
+			def_tuple = tuple([torch.randn(output_size, 1) for m in range(len(self.all_senses[word]))])
+			def_matrix = nn.Parameter(torch.cat(def_tuple, 1))
+			def_dict[word] = def_matrix
 
-			for definition in self.all_senses[word]:
+		return def_dict
 
-				# in the same order as in the sense dictionary
-				def_vec = torch.randn(self.output_size, 1, requires_grad = True).to(self.device)
-				current_def_embd.append(def_vec)
-
-			self.definition_embeddings[word] = current_def_embd
-
-		# encoder for definition embedding from WordNet
-		'''
-		self.encode_hidden_size = encode_hidden_size
-		self.encode_input_size = encode_input_size
-		self.encode_dimension_reduction = nn.Linear(self.encode_input_size * 3, self.tuned_embed_size)
-		self._init_MLP(self.tuned_embed_size, self.encode_hidden_size, self.output_size, param = "definition")
-		'''
-		
 	def _init_MLP(self, input_size, hidden_sizes, output_size, param = None):
 		'''
 		Initialize a 2-layer MLP on top of ELMo

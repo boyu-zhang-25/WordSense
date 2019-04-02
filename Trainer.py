@@ -113,7 +113,7 @@ class Trainer(object):
 		self.dev_X, self.dev_Y = dev_X, dev_Y
 			
 		self._initialize_trainer_model()  
-		test_vec = self._model.definition_embeddings['spring'][0]
+		# test_vec = self._model.definition_embeddings['spring'][0]
 
 		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
@@ -170,7 +170,8 @@ class Trainer(object):
 				# check all definitions in the annotator response for the target word
 				for i, response in enumerate(self.train_Y[idx]):
 
-					definition_vec = self._model.definition_embeddings[word_lemma][i]
+					definition_vec = self._model.definition_embeddings[word_lemma][:, i]
+					print('size: {}'.format(definition_vec.size()))
 					sense_vec = sense_vec.view(self._model.output_size, -1)
 					# print('res: {}'.format(response))
 
@@ -183,16 +184,13 @@ class Trainer(object):
 
 						# if annotator response is False
 						# increase the distance
-						loss_negative += (self.mse_loss(sense_vec, definition_vec))
+						loss_negative -= (self.mse_loss(sense_vec, definition_vec))
 
 				# backprop
-				if loss_positive.requires_grad:
-					loss_positive.backward(retain_graph = True)
-				if loss_negative.requires_grad:
-					loss_negative.backward()
-				
+				loss = loss_positive + loss_negative
+				loss.backward()
 				# record training loss for each example
-				current_loss = loss_positive.detach().item()
+				current_loss = loss.detach().item()
 				batch_losses.append(current_loss)
 
 				optimizer.step()					
@@ -220,6 +218,6 @@ class Trainer(object):
 
 			train_losses.append(curr_train_loss)
 
-		test_vec2 = self._model.definition_embeddings['spring'][0]
+		# test_vec2 = self._model.definition_embeddings['spring'][0]
 		# print(torch.eq(test_vec, test_vec2))
 		return train_losses, dev_losses, dev_rs, distance_all
