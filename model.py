@@ -2,23 +2,10 @@ import sys
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D  
-
-from torch.nn import Parameter
-from torch.nn import MSELoss, L1Loss, SmoothL1Loss, CrossEntropyLoss
-from torch.distributions.binomial import Binomial
-import torch.nn.utils.rnn as rnn_utils
 
 import pandas as pd
 import numpy as np
 import math
-from scipy.stats import spearmanr, pearsonr
-from sklearn.metrics import precision_score, f1_score, recall_score
-
-from tqdm import tqdm
-from tqdm import tqdm_notebook as tqdm_n
 
 from collections import Iterable, defaultdict
 import itertools
@@ -27,6 +14,7 @@ from allennlp.modules.elmo import Elmo, batch_to_ids
 from allennlp.commands.elmo import ElmoEmbedder
 
 # model for fine-tuning with ELMo
+# support mini-batch
 class Model(nn.Module):
 	def __init__(self, 
 				all_senses = None,
@@ -75,7 +63,6 @@ class Model(nn.Module):
 		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "word_sense")
 
 		# randomly initialize all vectors for definition embeddings
-		'''
 		self.definition_embeddings = {}
 		for word in self.all_senses.keys():
 
@@ -88,7 +75,7 @@ class Model(nn.Module):
 				current_def_embd.append(def_vec)
 
 			self.definition_embeddings[word] = current_def_embd
-		'''
+
 		# encoder for definition embedding from WordNet
 		'''
 		self.encode_hidden_size = encode_hidden_size
@@ -169,6 +156,7 @@ class Model(nn.Module):
 		return embeddings, masks
 
 	# get the embeddings for literal definitions in WordNet
+	# usesless
 	def _get_embedding_def_old(self, word_lemma):
 		'''
 			@param: a list target word in the dataset
@@ -303,6 +291,8 @@ class Model(nn.Module):
 
 		return results
 
+	# used to convert WordNet definitions to vectors
+	# useless
 	def _encode_definitions(self, definition_embeddings, word_lemma, param = None):
 		
 		'''

@@ -76,13 +76,15 @@ class Trainer(object):
 		else:
 			self.regularization = None
 		'''
+		
 		self.mse_loss = MSELoss().to(self.device)
-
+		self.best_model_file =  file_path + "word_sense_model_.pth"		
 		'''
 		if self.regularization:
 			self.regularization = self.regularization.to(self.device)
 		'''
 
+	# generate new model
 	def _initialize_trainer_model(self):
 		self._model = Model(device = self.device, all_senses = self.all_senses, elmo_class = self.elmo_class)
 		self._model = self._model.to(self.device)
@@ -93,30 +95,15 @@ class Trainer(object):
 				print(name, param.size())
 		print("##################################################")
 
-		# randomly initialize all vectors for definition embeddings
-		self.definition_embeddings = {}
-		for word in self._model.all_senses.keys():
-
-			current_def_embd = []
-
-			for definition in self._model.all_senses[word]:
-
-				# in the same order as in the sense dictionary
-				def_vec = torch.randn(self._model.output_size, 1, requires_grad = True).to(self.device)
-				current_def_embd.append(def_vec)
-
-			self.definition_embeddings[word] = current_def_embd
-
-	def _custom_loss(self, predicted, actual, pretrain_x, pretrain_actual):
+	def _custom_loss(self):
 		'''
-		Inputs:
-		1. predicted: model predicted values
-		2. actual: actual values
+		generate custom loss to both
+		pull closer correct sense vector
+		push away wrong definitions
 		'''
-		actual_torch = torch.from_numpy(np.array(actual)).float().to(self.device)
+		_custom_loss = []
 
-		domain_loss = self.smooth_loss(predicted.squeeze(), actual_torch)
-		return domain_loss
+		return _custom_loss
 
 	
 	def train(self, train_X, train_Y, train_idx, dev_X, dev_Y, dev_idx, development = False, **kwargs):
@@ -126,7 +113,7 @@ class Trainer(object):
 		self.dev_X, self.dev_Y = dev_X, dev_Y
 			
 		self._initialize_trainer_model()  
-		# test_vec = self.definition_embeddings['spring'][0]
+		test_vec = self._model.definition_embeddings['spring'][0]
 
 		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
@@ -142,12 +129,13 @@ class Trainer(object):
 		dev_losses = []
 		dev_rs = []
 		bad_count = 0
-		# dis = []
+		distance_all = []
 		
 		for epoch in range(self.epochs):
 			
+			# loss and distance for the cirrent iteration
 			batch_losses = []
-			# dis_all = []
+			distance = []
 
 			# Turn on training mode which enables dropout.
 			self._model.train()			
@@ -156,7 +144,7 @@ class Trainer(object):
 			# time print
 			pbar = tqdm_n(total = num_train)
 			
-			# SGD
+			# SGD batch = 1
 			for idx, sentence in enumerate(self.train_X):
 				
 				# Zero grad
@@ -179,9 +167,10 @@ class Trainer(object):
 				loss_positive = torch.zeros(()).to(self.device)
 				loss_negative = torch.zeros(()).to(self.device)
 
+				# check all definitions in the annotator response for the target word
 				for i, response in enumerate(self.train_Y[idx]):
 
-					definition_vec = self.definition_embeddings[word_lemma][i]
+					definition_vec = self._model.definition_embeddings[word_lemma][i]
 					sense_vec = sense_vec.view(self._model.output_size, -1)
 					# print('res: {}'.format(response))
 
@@ -189,26 +178,23 @@ class Trainer(object):
 					# reduce the distance
 					if response:
 						loss_positive += (self.mse_loss(sense_vec, definition_vec))
-						print(definition_vec.grad_fn)
-						# print(sense_vec.grad_fn)
-						# dis_all.append(self.pdist(sense_vec, definition_vec))
+						distance.append(self.pdist(sense_vec, definition_vec))
 					else:
 
-						# if annotator response is True
+						# if annotator response is False
 						# increase the distance
-						loss_negative += (-self.mse_loss(sense_vec, definition_vec))
+						loss_negative += (self.mse_loss(sense_vec, definition_vec))
 
 				# backprop
 				if loss_positive.requires_grad:
 					loss_positive.backward(retain_graph = True)
-					# print(self._model.definition_embeddings['spring'][0].grad_fn)
-				# if loss_negative.requires_grad:
-					# loss_negative.backward()
+				if loss_negative.requires_grad:
+					loss_negative.backward()
 				
 				# record training loss for each example
 				current_loss = loss_positive.detach().item()
 				batch_losses.append(current_loss)
-				# plot_grad_flow(self._model.named_parameters())
+
 				optimizer.step()					
 				pbar.update(1)
 					
@@ -216,16 +202,17 @@ class Trainer(object):
 			
 			# calculate the training loss of the current epoch
 			curr_train_loss = np.mean(batch_losses)
-			# dis.append(np.mean(dis_all))
 			print("Epoch: {}, Mean Train Loss: {}".format(epoch + 1, curr_train_loss))
 
+			# calculate the change in distance between correct sense and definitio
+			distance_all.append(torch.mean(torch.stack(distance)))
+
 			# save the best model
-			'''
 			if curr_train_loss < best_loss:
 				with open(self.best_model_file, 'wb') as f:
 					torch.save(self._model.state_dict(), f)
 				best_loss = curr_train_loss
-			'''
+			
 			## Stop training when loss converges
 			if epoch:
 				if (abs(curr_train_loss - train_losses[-1]) < 0.0001):
@@ -233,6 +220,6 @@ class Trainer(object):
 
 			train_losses.append(curr_train_loss)
 
-		# test_vec2 = self.definition_embeddings['spring'][0]
+		test_vec2 = self._model.definition_embeddings['spring'][0]
 		# print(torch.eq(test_vec, test_vec2))
-		return train_losses, dev_losses, dev_rs
+		return train_losses, dev_losses, dev_rs, distance_all
