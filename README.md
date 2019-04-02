@@ -1,6 +1,6 @@
-# Non-parametric Joint Optimization for Word Sense Embedding
+# Multi-Label Word Sense Tagging with Supersense Back-off
 
-Code for the paper *Non-parametric Joint Optimization for Word Sense Embedding*. 
+Code for the paper *Multi-Label Word Sense Tagging with Supersense Back-off*. 
 
 Preparing for EMNLP 2019.
 
@@ -33,6 +33,8 @@ The goal of this joint optimization is to increase the similarity between the wo
 2. The ability of the model to locate accurate ground truth embedding for definitions in the WordNet. 
 
 The metaphor here is that *step 1* is assigning word to a cluster, and *step 2* is correct the mean of the clusters. Specifically, BP for the sense embedding on top of ELMo will be a regular optimization, while the gradient descent for ground truth encoder shall be updated with a normalized loss per example. This is means one particular word contributes certain amount of correction normalized by the size of all words, which is similar to calculating new means in Expectation-Maximization algorithms. 
+
+Supersense:
 
 # Corpora
 
