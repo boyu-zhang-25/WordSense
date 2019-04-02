@@ -26,31 +26,28 @@ import itertools
 from allennlp.modules.elmo import Elmo, batch_to_ids
 from allennlp.commands.elmo import ElmoEmbedder
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print('device: {}'.format(device))
-
 # model for fine-tuning with ELMo
 class Model(nn.Module):
 	def __init__(self, 
 				all_senses = None,
-				all_definitions = None, 
+				# all_definitions = None, 
 				output_size = 300, # output size of each sense vector [300, 1]
 				embedding_size = 1024, # ELMo embedding size
 				elmo_class = None,
 				tuned_embed_size = 256,
-				mlp_dropout = 0,
+				mlp_dropout = 0.3,
 				lstm_hidden_size = 256,
-				encode_hidden_size = [512], # 1 hidden layer for definitio encoder
-				encode_input_size = 1024, # encode of definitions from WordNet
-				train_batch_size = 64,
+				# encode_hidden_size = [512], # 1 hidden layer for definitio encoder
+				# encode_input_size = 1024, # encode of definitions from WordNet
+				# train_batch_size = 64,
 				MLP_sizes = [512], # 1 hidden layer for fine-tuning sense vector
-				device = device):
+				device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
 		super().__init__()
 		
 		# all senses and all definitions for all words
 		# useful for all purposes
 		self.all_senses = all_senses
-		self.all_definitions =  all_definitions
+		# self.all_definitions =  all_definitions
 		self.elmo_class = elmo_class
 		self.device = device
 
@@ -77,11 +74,28 @@ class Model(nn.Module):
 		# build a 2-layer MLP on top of LSTM for fine-tuning
 		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "word_sense")
 
+		# randomly initialize all vectors for definition embeddings
+		'''
+		self.definition_embeddings = {}
+		for word in self.all_senses.keys():
+
+			current_def_embd = []
+
+			for definition in self.all_senses[word]:
+
+				# in the same order as in the sense dictionary
+				def_vec = torch.randn(self.output_size, 1, requires_grad = True).to(self.device)
+				current_def_embd.append(def_vec)
+
+			self.definition_embeddings[word] = current_def_embd
+		'''
 		# encoder for definition embedding from WordNet
+		'''
 		self.encode_hidden_size = encode_hidden_size
 		self.encode_input_size = encode_input_size
 		self.encode_dimension_reduction = nn.Linear(self.encode_input_size * 3, self.tuned_embed_size)
 		self._init_MLP(self.tuned_embed_size, self.encode_hidden_size, self.output_size, param = "definition")
+		'''
 		
 	def _init_MLP(self, input_size, hidden_sizes, output_size, param = None):
 		'''
@@ -126,7 +140,7 @@ class Model(nn.Module):
 		# get ELMo embeddings of the sentences
 		# torch.Size([number of sentences, 3 (layers), max sentence length, 1024 (word vector length)])
 		embeddings, masks = self.elmo_class.batch_to_embeddings(sentences)
-		print('\nOriginal ELMo embeddings size of word sense: {}, mask: {}'.format(embeddings.size(), masks.size()))
+		# print('\nOriginal ELMo embeddings size of word sense: {}, mask: {}'.format(embeddings.size(), masks.size()))
 
 		# pass to CUDA
 		embeddings = embeddings.to(self.device)
@@ -137,25 +151,25 @@ class Model(nn.Module):
 		batch_size = embeddings.size()[0]
 		max_length = embeddings.size()[2]
 		embeddings = embeddings.permute(2, 0, 1, 3)
-		masks = masks.permute(1, 0)
+		# masks = masks.permute(1, 0)
 
 		# concatenate 3 layers and reshape
 		# [max_sent_len, batch_size, 3 * 1024]
 		embeddings = embeddings.contiguous().view(max_length, batch_size, -1)
 
 		# Tune embeddings into lower dim
-		masks = masks.unsqueeze(2).repeat(1, 1, self.tuned_embed_size).byte()
+		# masks = masks.unsqueeze(2).repeat(1, 1, self.tuned_embed_size).byte()
 		
 		# 3 * 1024 -> 256 by dimension reduction
 		embeddings = self._tune_embeddings(embeddings, param = 'word_sense')
-		embeddings = embeddings * masks.float()
+		# embeddings = embeddings * masks.float()
 
-		print('Word sense embedding size after dimension reduction: {}, mask: {}'.format(embeddings.size(), masks.size()))
+		# print('Word sense embedding size after dimension reduction: {}, mask: {}'.format(embeddings.size(), masks.size()))
 
 		return embeddings, masks
 
 	# get the embeddings for literal definitions in WordNet
-	def _get_embedding_def(self, word_lemma):
+	def _get_embedding_def_old(self, word_lemma):
 		'''
 			@param: a list target word in the dataset
 			@return:
@@ -206,6 +220,16 @@ class Model(nn.Module):
 
 		return embedding_def_results, masks_def_results
 
+	# get the embeddings for literal definitions in WordNet
+	def get_embedding_def(self, word_lemma):
+		'''
+			@param: a list target word in the dataset
+			@return:
+			a list of all definition embeddings for all target words
+		'''
+		embedding_def_results = [self.definition_embeddings[word] for word in word_lemma]
+		return embedding_def_results
+
 	# forward propagation selected sentence and definitions
 	def forward(self, sentences, word_idx):
 		
@@ -221,10 +245,10 @@ class Model(nn.Module):
 		embeddings, (hn, cn) = self.wsd_lstm(embeddings)
 
 		# convert masked tokens to zero after passing through Bi-lstm
-		bilstm_masks = masks.repeat(1, 1, 2)
+		# bilstm_masks = masks.repeat(1, 1, 2)
 		# [sentence_length, batch_size, word_vector_length]
-		embeddings = embeddings * bilstm_masks.float()
-		print('\nWord sense embedding size after bi-LSTM: {}'.format(embeddings.size()))
+		# embeddings = embeddings * bilstm_masks.float()
+		# print('\nWord sense embedding size after bi-LSTM: {}'.format(embeddings.size()))
 
 		# Extract the new word embeddings by index
 		# batch_size words, each has length 512
@@ -235,17 +259,23 @@ class Model(nn.Module):
 		sense_embedding = self._run_fine_tune_MLP(new_word_embs, word_lemma, param = 'word_sense')
 
 		# run definition encoder
-		definition_embedding, definition_masks = self._get_embedding_def(word_lemma)
-		definition_embedding = self._encode_definitions(definition_embedding, word_lemma, param = 'definition')
-		
-		return sense_embedding, definition_embedding
+		# definition_embedding = self._encode_definitions(definition_embedding, word_lemma, param = 'definition')
+
+		# get the definition embeddings
+		# definition_embedding = self.get_embedding_def(word_lemma)
+
+		return sense_embedding
 		
 	def _extract_word(self, embeddings, word_idx):
 		'''
 		Extract the new word embeddings by index
 		'''
 		batch_size = embeddings.size()[1]
-		new_word_embs = [embeddings[word_idx[i], i, :] for i in range(batch_size)]
+		new_word_embs = []
+		for i in range(batch_size):
+			embeddings[word_idx[i], i, :] = embeddings[word_idx[i], i, :].to(self.device)
+			new_word_embs.append(embeddings[word_idx[i], i, :])
+
 		return new_word_embs
 
 	# 3 * 1024 -> 256 by dimension reduction
@@ -300,6 +330,7 @@ class Model(nn.Module):
 					# run the fine-tuning MLP and get the sense vector
 					for layer in self.layers[param]:
 						def_vec = layer(def_vec)
+						def_vec = self.mlp_dropout(def_vec)
 
 					def_embs.append(def_vec)
 

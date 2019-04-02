@@ -25,25 +25,34 @@ import itertools
 
 from allennlp.modules.elmo import Elmo, batch_to_ids
 from allennlp.commands.elmo import ElmoEmbedder
+from model import *
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print('Device: {}'.format(device))
 
 class Trainer(object):
 
 	def __init__(self, 
-				 optimizer_class = torch.optim.Adam,
-				 optim_wt_decay=0.,
-				 epochs=3,
-				 train_batch_size = 64,
-				 data_name = None,
-				 pretrain_data_name = None,
-				 predict_batch_size = 128,
-				 pretraining=False,
-				 regularization = None,
-				 file_path = "",
-				device = torch.device(type="cpu"),
+				optimizer_class = torch.optim.Adam,
+				optim_wt_decay = 0.,
+				epochs = 5,
+				train_batch_size = 64,
+				data_name = None,
+				pretrain_data_name = None,
+				predict_batch_size = 128,
+				pretraining = False,
+				regularization = None,
+				pdist = torch.nn.PairwiseDistance(p = 2), # norm distance between 2 vectors
+				all_senses = None,
+				elmo_class = None, # for sense vector in the model
+				file_path = "",
+				device = device,
 				**kwargs):
 
 		## Training parameters
 		self.epochs = epochs
+		self.elmo_class = elmo_class
+		self.pdist = pdist
 		self.train_batch_size = train_batch_size
 		self.predict_batch_size = predict_batch_size
 		self.pretraining = pretraining
@@ -54,31 +63,49 @@ class Trainer(object):
 		self._optimizer_class = optimizer_class
 		self.optim_wt_decay = optim_wt_decay
 		
+		# taget word index and senses list
+		self.all_senses = all_senses
 		self._init_kwargs = kwargs
 		self.device = device
 		
+		'''
 		if regularization == "l1":
 			self.regularization = L1Loss()
 		elif regularization == "smoothl1":
 			self.regularization = SmoothL1Loss()
 		else:
 			self.regularization = None
+		'''
+		self.mse_loss = MSELoss().to(self.device)
 
-		## save to Model file
-		self.best_model_file =  file_path + "wsd_model_" + data_name + \
-									"_" + str(optim_wt_decay) + \
-									"_" + "pre_" + str(pretrain_data_name) + \
-									"_" + str(regularization) + "_.pth"
-
-		self.smooth_loss = SmoothL1Loss().to(self.device)
-		self.l1_loss = L1Loss().to(self.device)
-
+		'''
 		if self.regularization:
 			self.regularization = self.regularization.to(self.device)
+		'''
 
 	def _initialize_trainer_model(self):
-		self._model = Model(device = self.device, **self._init_kwargs)
+		self._model = Model(device = self.device, all_senses = self.all_senses, elmo_class = self.elmo_class)
 		self._model = self._model.to(self.device)
+
+		print("#############   Model Parameters   ##############")
+		for name, param in self._model.named_parameters():     
+			if param.requires_grad:
+				print(name, param.size())
+		print("##################################################")
+
+		# randomly initialize all vectors for definition embeddings
+		self.definition_embeddings = {}
+		for word in self._model.all_senses.keys():
+
+			current_def_embd = []
+
+			for definition in self._model.all_senses[word]:
+
+				# in the same order as in the sense dictionary
+				def_vec = torch.randn(self._model.output_size, 1, requires_grad = True).to(self.device)
+				current_def_embd.append(def_vec)
+
+			self.definition_embeddings[word] = current_def_embd
 
 	def _custom_loss(self, predicted, actual, pretrain_x, pretrain_actual):
 		'''
@@ -92,238 +119,120 @@ class Trainer(object):
 		return domain_loss
 
 	
-	def train(self, train_X, train_Y, dev, pretrain_x, pretrain_actual, **kwargs):
+	def train(self, train_X, train_Y, train_idx, dev_X, dev_Y, dev_idx, development = False, **kwargs):
 
-		self._X,  self._Y = train_X, train_Y
-		
-		self.pretrain_x = pretrain_x
-		self.pretrain_actual = pretrain_actual
-
-		if self.data_name != "megaverid":
-			dev_x, dev_y = dev
+		# train_Y is the annotator response
+		self.train_X, self.train_Y = train_X, train_Y
+		self.dev_X, self.dev_Y = dev_X, dev_Y
 			
 		self._initialize_trainer_model()  
+		# test_vec = self.definition_embeddings['spring'][0]
 
+		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
 		optimizer = self._optimizer_class(parameters, weight_decay = self.optim_wt_decay, **kwargs)
 		
-		total_obs = len(self._X)
-		#dev_obs = len(dev_x)
+		num_train = len(self.train_X)
+		# num_dev = len(self.dev_X)
 		
-		#dev_accs = []
+		# dev_accs = []
 		best_loss = float('inf')
 		best_r = -float('inf')
 		train_losses = []
 		dev_losses = []
 		dev_rs = []
 		bad_count = 0
+		# dis = []
 		
 		for epoch in range(self.epochs):
 			
 			batch_losses = []
+			# dis_all = []
+
 			# Turn on training mode which enables dropout.
-			self._model.train()
+			self._model.train()			
+			tqdm.write("[Epoch: {}/{}]".format((epoch + 1), self.epochs))
 			
-			bidx_i = 0
-			bidx_j =self.train_batch_size
+			# time print
+			pbar = tqdm_n(total = num_train)
 			
-			tqdm.write("Running Epoch: {}".format(epoch+1))
-			
-			#time print
-			pbar = tqdm_n(total = total_obs//self.train_batch_size)
-			
-			while bidx_j < total_obs:
-				words = [words for words, spans in self._X[bidx_i:bidx_j]]
-				spans = [spans for words, spans in self._X[bidx_i:bidx_j]]
+			# SGD
+			for idx, sentence in enumerate(self.train_X):
 				
-				##Zero grad
+				# Zero grad
 				optimizer.zero_grad()
 
-				##Calculate Loss
-				model_out  = self._model(words, spans)   
-				
-				if self.pretraining:
-					curr_loss = self._custom_loss(model_out, self._Y[bidx_i:bidx_j], pretrain_x, pretrain_actual)
-				else:
-					curr_loss = self._custom_loss(model_out, self._Y[bidx_i:bidx_j], None, None)
-					
-				batch_losses.append(curr_loss.detach().item())
-				
-				##Backpropagate
-				curr_loss.backward()
+				# the target word
+				word_idx = train_idx[idx]
+				word_lemma = sentence[word_idx]
+				# print(word_lemma)
 
-				#plot_grad_flow(self._model.named_parameters())
-				optimizer.step()
-				bidx_i = bidx_j
-				bidx_j = bidx_i + self.train_batch_size
+				# model output
+				# cast single data point to 1-digit list for SGD to batch
+				sen_list = []
+				sen_list.append(sentence)
+				word_idx_list = []
+				word_idx_list.append(word_idx)
+				sense_vec = self._model.forward(sen_list, word_idx_list)[0] 
 				
-				if bidx_j >= total_obs:
-					words = [words for words, spans in self._X[bidx_i:bidx_j]]
-					spans = [spans for words, spans in self._X[bidx_i:bidx_j]]
-					##Zero grad
-					optimizer.zero_grad()
+				# calculate loss pair-wise: sense vector and definition vector
+				loss_positive = torch.zeros(()).to(self.device)
+				loss_negative = torch.zeros(()).to(self.device)
 
-					##Calculate Loss
-					model_out  = self._model(words, spans)   
-					
-					if self.pretraining:
-						curr_loss = self._custom_loss(model_out, self._Y[bidx_i:bidx_j], pretrain_x, pretrain_actual)
+				for i, response in enumerate(self.train_Y[idx]):
+
+					definition_vec = self.definition_embeddings[word_lemma][i]
+					sense_vec = sense_vec.view(self._model.output_size, -1)
+					# print('res: {}'.format(response))
+
+					# if annotator response is True
+					# reduce the distance
+					if response:
+						loss_positive += (self.mse_loss(sense_vec, definition_vec))
+						print(definition_vec.grad_fn)
+						# print(sense_vec.grad_fn)
+						# dis_all.append(self.pdist(sense_vec, definition_vec))
 					else:
-						curr_loss = self._custom_loss(model_out, self._Y[bidx_i:bidx_j], None, None)
-					
-					batch_losses.append(curr_loss.detach().item())
-					##Backpropagate
-					curr_loss.backward()
 
-					#plot_grad_flow(self.named_parameters())
-					optimizer.step()
-					
+						# if annotator response is True
+						# increase the distance
+						loss_negative += (-self.mse_loss(sense_vec, definition_vec))
+
+				# backprop
+				if loss_positive.requires_grad:
+					loss_positive.backward(retain_graph = True)
+					# print(self._model.definition_embeddings['spring'][0].grad_fn)
+				# if loss_negative.requires_grad:
+					# loss_negative.backward()
+				
+				# record training loss for each example
+				current_loss = loss_positive.detach().item()
+				batch_losses.append(current_loss)
+				# plot_grad_flow(self._model.named_parameters())
+				optimizer.step()					
 				pbar.update(1)
 					
 			pbar.close()
 			
-			#print(batch_losses)
+			# calculate the training loss of the current epoch
 			curr_train_loss = np.mean(batch_losses)
-			print("Epoch: {}, Mean Train Loss across batches: {}".format(epoch+1, curr_train_loss))
-			
-			if self.data_name == "megaverid":
-				if curr_train_loss < best_loss:
-					with open(self.best_model_file, 'wb') as f:
-						torch.save(self._model.state_dict(), f)
-					best_loss = curr_train_loss
-				
-				## Stop training when loss converges
-				if epoch:
-					if (abs(curr_train_loss - train_losses[-1]) < 0.0001):
-						break
+			# dis.append(np.mean(dis_all))
+			print("Epoch: {}, Mean Train Loss: {}".format(epoch + 1, curr_train_loss))
 
-				train_losses.append(curr_train_loss)
-
-			else:
-				curr_dev_loss, curr_dev_preds = self.predict(dev_x, dev_y)
-				curr_dev_r = pearsonr(curr_dev_preds.cpu().numpy(), dev_y)
-				print("Epoch: {}, Mean Dev Loss across batches: {}, pearsonr: {}".format(epoch+1, 
-																						curr_dev_loss,
-																						curr_dev_r[0]))
-				
-				# if curr_dev_loss < best_loss:
-				#     with open(self.best_model_file, 'wb') as f:
-				#         torch.save(self._model.state_dict(), f)
-				#     best_loss = curr_dev_loss
-
-
-				if curr_dev_r[0] > best_r:
-					with open(self.best_model_file, 'wb') as f:
-						torch.save(self._model.state_dict(), f)
-					best_r = curr_dev_r[0]
-			
-
-				# if epoch:
-				#     if curr_dev_loss > dev_losses[-1]:
-				#         bad_count+=1
-				#     else:
-				#         bad_count=0
-
-				if epoch:
-					if curr_dev_r[0] < dev_rs[-1]:
-						bad_count+=1
-					else:
-						bad_count=0
-
-				if bad_count >=3:
+			# save the best model
+			'''
+			if curr_train_loss < best_loss:
+				with open(self.best_model_file, 'wb') as f:
+					torch.save(self._model.state_dict(), f)
+				best_loss = curr_train_loss
+			'''
+			## Stop training when loss converges
+			if epoch:
+				if (abs(curr_train_loss - train_losses[-1]) < 0.0001):
 					break
 
-				dev_rs.append(curr_dev_r[0])
-				dev_losses.append(curr_dev_loss)
-				train_losses.append(curr_train_loss)
-			
+			train_losses.append(curr_train_loss)
 
-		# print("Epoch: {}, Converging-Loss: {}".format(epoch+1, curr_mean_loss))
-
+		# test_vec2 = self.definition_embeddings['spring'][0]
+		# print(torch.eq(test_vec, test_vec2))
 		return train_losses, dev_losses, dev_rs
-
-	def predict_grad(self, data_x):
-		'''
-		Predictions with gradients and computation graph intact
-		'''     
-		bidx_i = 0
-		bidx_j = self.predict_batch_size
-		total_obs = len(data_x)
-		yhat = torch.zeros(total_obs).to(self.device)
-
-		while bidx_j < total_obs:
-			words = [words for words, spans in data_x[bidx_i:bidx_j]]
-			spans = [spans for words, spans in data_x[bidx_i:bidx_j]]
-		
-			##Calculate Loss
-			model_out  = self._model(words, spans)   
-			yhat[bidx_i:bidx_j] = model_out.squeeze()
-			
-			bidx_i = bidx_j
-			bidx_j = bidx_i + self.train_batch_size
-			
-			if bidx_j >= total_obs:
-				words = [words for words, spans in data_x[bidx_i:bidx_j]]
-				spans = [spans for words, spans in data_x[bidx_i:bidx_j]]
-				
-				##Calculate Loss
-				model_out  = self._model(words, spans)   
-				yhat[bidx_i:bidx_j] = model_out.squeeze()
-				
-		return yhat
-
-	def predict(self, data_x, data_y, loss=None):
-		'''
-		Predict loss, and prediction values for whole data_x
-		'''
-		# Turn on evaluation mode which disables dropout.
-		self._model.eval()
-		batch_losses = []
-		
-		with torch.no_grad():  
-			bidx_i = 0
-			bidx_j = self.predict_batch_size
-			total_obs = len(data_x)
-			yhat = torch.zeros(total_obs).to(self.device)
-
-			while bidx_j < total_obs:
-				words = [words for words, spans in data_x[bidx_i:bidx_j]]
-				spans = [spans for words, spans in data_x[bidx_i:bidx_j]]
-			
-				##Calculate Loss
-				model_out  = self._model(words, spans)   
-				yhat[bidx_i:bidx_j] = model_out.squeeze()
-
-				if self.pretraining:
-					curr_loss = self._custom_loss(model_out, data_y[bidx_i:bidx_j], self.pretrain_x, self.pretrain_actual)
-				else:
-					if loss=="l1":
-						actual_torch = torch.from_numpy(np.array(data_y[bidx_i:bidx_j])).float().to(self.device)
-						curr_loss = self.l1_loss(model_out.squeeze(), actual_torch)
-					else:
-						curr_loss = self._custom_loss(model_out, data_y[bidx_i:bidx_j], None, None)
-
-				batch_losses.append(curr_loss.detach().item())
-				
-				bidx_i = bidx_j
-				bidx_j = bidx_i + self.train_batch_size
-				
-				if bidx_j >= total_obs:
-					words = [words for words, spans in data_x[bidx_i:bidx_j]]
-					spans = [spans for words, spans in data_x[bidx_i:bidx_j]]
-					
-					##Calculate Loss
-					model_out  = self._model(words, spans)   
-					yhat[bidx_i:bidx_j] = model_out.squeeze()
-					if self.pretraining:
-						curr_loss = self._custom_loss(model_out, data_y[bidx_i:bidx_j], self.pretrain_x, self.pretrain_actual)
-					else:
-						if loss=="l1":
-							actual_torch = torch.from_numpy(np.array(data_y[bidx_i:bidx_j])).float().to(self.device)
-							curr_loss = self.l1_loss(model_out.squeeze(), actual_torch)
-						else:
-							curr_loss = self._custom_loss(model_out, data_y[bidx_i:bidx_j], None, None)
-					batch_losses.append(curr_loss.detach().item())
-				
-
-		return np.mean(batch_losses), yhat.detach()
