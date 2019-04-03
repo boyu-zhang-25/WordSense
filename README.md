@@ -2,8 +2,6 @@
 
 Code for the paper *Multi-Label Word Sense Tagging with Supersense Back-off*. 
 
-Preparing for EMNLP 2019.
-
 ## Work in progress.
 
 Please check the `test.ipynb` for results so far. 
