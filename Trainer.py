@@ -16,6 +16,7 @@ from tqdm import tqdm
 from tqdm import tqdm_notebook as tqdm_n
 import itertools
 
+from nltk.corpus import wordnet as wn
 from allennlp.modules.elmo import Elmo, batch_to_ids
 from allennlp.commands.elmo import ElmoEmbedder
 from model import *
