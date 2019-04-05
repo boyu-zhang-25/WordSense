@@ -7,20 +7,15 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D  
 
 from torch.nn import Parameter
-from torch.nn import MSELoss, L1Loss, SmoothL1Loss, CrossEntropyLoss, CosineEmbeddingLoss
-from torch.distributions.binomial import Binomial
+from torch.nn import MSELoss, CrossEntropyLoss, CosineEmbeddingLoss
 import torch.nn.utils.rnn as rnn_utils
 
 import pandas as pd
 import numpy as np
 import math
-from scipy.stats import spearmanr, pearsonr
-from sklearn.metrics import precision_score, f1_score, recall_score
 
 from tqdm import tqdm
 from tqdm import tqdm_notebook as tqdm_n
-
-from collections import Iterable, defaultdict
 import itertools
 
 from allennlp.modules.elmo import Elmo, batch_to_ids
@@ -101,18 +96,8 @@ class Trainer(object):
 			if param.requires_grad:
 				print(name, param.size())
 		print("##################################################")
-
-	def _custom_loss(self):
-		'''
-		generate custom loss to both
-		pull closer correct sense vector
-		push away wrong definitions
-		'''
-		_custom_loss = []
-
-		return _custom_loss
-
 	
+	# supports batch input
 	def train(self, train_X, train_Y, train_idx, dev_X, dev_Y, dev_idx, development = False, **kwargs):
 
 		# train_Y is the annotator response
@@ -120,11 +105,12 @@ class Trainer(object):
 		self.dev_X, self.dev_Y = dev_X, dev_Y
 			
 		self._initialize_trainer_model()  
-		# print(self._model.definition_embeddings['spring'][0])
+		old = self._model.definition_embeddings['spring'].clone().detach()
 
 		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
 		sense_optimizer = self.sense_optimizer(parameters, weight_decay = self.optim_wt_decay, **kwargs)
+
 		num_train = len(self.train_X)
 		# num_dev = len(self.dev_X)
 		
@@ -159,19 +145,11 @@ class Trainer(object):
 				# the target word
 				word_idx = train_idx[idx]
 				word_lemma = sentence[word_idx]
-				# print(word_lemma)
 
 				# model output
-				# cast single data point to 1-digit list for SGD to batch
-				sen_list = []
-				sen_list.append(sentence)
-				word_idx_list = []
-				word_idx_list.append(word_idx)
-				sense_vec = self._model.forward(sen_list, word_idx_list)[0].view(self._model.output_size, -1)
+				sense_vec = self._model.forward(sentence, word_idx)
 				
 				# calculate loss pair-wise: sense vector and definition vector
-				# loss_positive = torch.zeros(()).to(self.device)
-				# loss_negative = torch.zeros(()).to(self.device)
 				losses = []
 
 				# check all definitions in the annotator response for the target word
@@ -191,6 +169,7 @@ class Trainer(object):
 
 						# backprop for this specific definition
 						definition_loss.backward(definition_vec, retain_graph = True)
+
 						distance.append(self.pdist(sense_vec, definition_vec))
 					else:
 
@@ -211,6 +190,26 @@ class Trainer(object):
 				# backprop for the predicted sense embeddings
 				loss = sum(losses)
 				loss.backward()
+
+				# BP the total loss for each definitiom
+				'''
+				for i, response in enumerate(self.train_Y[idx]):
+
+					# carefully clone a leaf tensor for gradient calculation
+					definition_vec_old = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
+					definition_vec = definition_vec_old.clone().detach().requires_grad_(True)
+
+					def_optimizer = self.def_optimizer([definition_vec], weight_decay = self.optim_wt_decay, **kwargs)
+					def_optimizer.zero_grad()
+
+					loss.backward(definition_vec, retain_graph = True)
+					print(definition_vec.grad)
+					# individual update for definition matrix
+					def_optimizer.step()
+
+					# print(torch.eq(definition_vec_old, definition_vec))
+					self._model.definition_embeddings[word_lemma][:, i] = definition_vec.view(self._model.output_size)
+				'''
 
 				# record training loss for each example
 				current_loss = loss.detach().item()
@@ -235,11 +234,12 @@ class Trainer(object):
 				best_loss = curr_train_loss
 			
 			# early stopping
+			'''
 			if epoch:
 				if (abs(curr_train_loss - train_losses[-1]) < 0.0001):
 					break
-
+			'''
 			train_losses.append(curr_train_loss)
 
-		# print(self._model.definition_embeddings['spring'][0])
+		# print(torch.eq(old, self._model.definition_embeddings['spring']))
 		return train_losses, dev_losses, dev_rs, distance_all

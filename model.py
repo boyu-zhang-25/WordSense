@@ -14,20 +14,15 @@ from allennlp.modules.elmo import Elmo, batch_to_ids
 from allennlp.commands.elmo import ElmoEmbedder
 
 # model for fine-tuning with ELMo
-# support mini-batch
 class Model(nn.Module):
 	def __init__(self, 
 				all_senses = None,
-				# all_definitions = None, 
 				output_size = 300, # output size of each sense vector [300, 1]
 				embedding_size = 1024, # ELMo embedding size
 				elmo_class = None,
 				tuned_embed_size = 256,
 				mlp_dropout = 0,
 				lstm_hidden_size = 256,
-				# encode_hidden_size = [512], # 1 hidden layer for definitio encoder
-				# encode_input_size = 1024, # encode of definitions from WordNet
-				# train_batch_size = 64,
 				MLP_sizes = [512], # 1 hidden layer for fine-tuning sense vector
 				device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
 		super().__init__()
@@ -35,7 +30,6 @@ class Model(nn.Module):
 		# all senses and all definitions for all words
 		# useful for all purposes
 		self.all_senses = all_senses
-		# self.all_definitions =  all_definitions
 		self.elmo_class = elmo_class
 		self.device = device
 
@@ -54,19 +48,19 @@ class Model(nn.Module):
 
 		# dimension reduction for elmo
 		# 3 * 1024 ELMo -> 1 * 256 
-		self.dimension_reduction_MLP = nn.Linear(self.embedding_size * 3, self.tuned_embed_size)
+		self.dimension_reduction_MLP = nn.Linear(self.embedding_size * 3, self.tuned_embed_size).to(self.device)
 
 		# construct a LSTM on top of ELMo
-		self.wsd_lstm = nn.LSTM(self.tuned_embed_size, self.lstm_hidden_size, num_layers = 2, bidirectional = True)
+		self.wsd_lstm = nn.LSTM(self.tuned_embed_size, self.lstm_hidden_size, num_layers = 2, bidirectional = True).to(self.device)
 
 		# build a 2-layer MLP on top of LSTM for fine-tuning
 		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "word_sense")
 
-		# randomly initialize all vectors for definition embeddings
+		# randomly initialize all vectors for definition embedding
 		def_dict = self._init_definition_embeddings(self.output_size, param = "definition_embedding")
 		self.definition_embeddings = nn.ParameterDict(def_dict)
 
-	# initialize all the definition embeddings for all words
+	# initialize all the definition embedding for all words
 	# put into a matrix for each word
 	def _init_definition_embeddings(self, output_size, param = None):
 
@@ -110,56 +104,44 @@ class Model(nn.Module):
 		output_layer = output_layer.to(self.device)
 		self.layers[param].append(output_layer)
 		
-	def _get_embedding(self, sentences):
+	def _get_embedding(self, sentence):
 		'''
-			@param: a list of list of words (sentences)
+			@param: a list of words (a sentence)
 
 			@return: 
-			ELMo embeddins of every sentences (for all three ELMo layers each 1024 dim)
+			ELMo embeddins of the sentence (for all three ELMo layers each 1024 dim)
 			concatenates them to make a 3072 dim embedding vector
 			reduces the dimension to a lower number (256)
 		''' 
 
-		# get ELMo embeddings of the sentences
-		# torch.Size([number of sentences, 3 (layers), max sentence length, 1024 (word vector length)])
-		embeddings, masks = self.elmo_class.batch_to_embeddings(sentences)
-		# print('\nOriginal ELMo embeddings size of word sense: {}, mask: {}'.format(embeddings.size(), masks.size()))
+		# get ELMo embedding of the sentence
+		# torch.Size([3 (layers), sentence length, 1024 (word vector length)])
+		embedding = torch.from_numpy(self.elmo_class.embed_sentence(sentence))
 
 		# pass to CUDA
-		embeddings = embeddings.to(self.device)
-		masks = masks.to(self.device)
+		embedding = embedding.to(self.device)
 
-		# old: [batch_size, num_layers, max_sent_len, word_embedding_size]
-		# new: [max_sent_len, batch_size, num_layers, word_embedding_size]
-		batch_size = embeddings.size()[0]
-		max_length = embeddings.size()[2]
-		embeddings = embeddings.permute(2, 0, 1, 3)
-		# masks = masks.permute(1, 0)
+		# old: [3 (layers), sentence_length, 1024 (word vector length)]
+		# new: [sentence_length, 3 (layers), word_embedding_size]
+		embedding = embedding.permute(1, 0, 2)
 
 		# concatenate 3 layers and reshape
-		# [max_sent_len, batch_size, 3 * 1024]
-		embeddings = embeddings.contiguous().view(max_length, batch_size, -1)
-
-		# Tune embeddings into lower dim
-		# masks = masks.unsqueeze(2).repeat(1, 1, self.tuned_embed_size).byte()
+		# [sentence_length, batch_size, 3 * 1024]
+		batch_size = 1
+		sentence_length = embedding.size()[0]
+		embedding = embedding.contiguous().view(sentence_length, batch_size, -1)
 		
-		# 3 * 1024 -> 256 by dimension reduction
-		embeddings = self._tune_embeddings(embeddings, param = 'word_sense')
-		# embeddings = embeddings * masks.float()
+		# [sentence_length, batch_size, 256]
+		embedding = self._tune_embeddings(embedding, param = 'word_sense')
+		# print('em require: {}'.format(embedding.requires_grad))
 
-		# print('Word sense embedding size after dimension reduction: {}, mask: {}'.format(embeddings.size(), masks.size()))
+		return embedding
 
-		return embeddings, masks
-
-	# get the embeddings for literal definitions in WordNet
+	# get the embedding for literal definitions in WordNet
 	# usesless
+	'''
 	def _get_embedding_def_old(self, word_lemma):
-		'''
-			@param: a list target word in the dataset
-			@return:
-			a list of 
-			all definition embeddings for all target words
-		'''
+
 		embedding_def_results = []
 		masks_def_results = []
 
@@ -169,7 +151,7 @@ class Model(nn.Module):
 			definitions = self.all_definitions[word]
 			# print('\ndef size: {}'.format(len(definitions)))
 
-			# get ELMo embeddings of the definitions
+			# get ELMo embedding of the definitions
 			embeddings_def, masks_def = self.elmo_class.batch_to_embeddings(definitions)
 			# print('ELMo embeddings_def size: {}'.format(embeddings_def.size()))
 
@@ -190,7 +172,7 @@ class Model(nn.Module):
 			embeddings_def = embeddings_def.contiguous().view(max_length, batch_size, -1)
 			# print('con embeddings_def size: {}'.format(embeddings_def.size()))
 
-			# Tune embeddings into lower dim
+			# Tune embedding into lower dim
 			masks_def = masks_def.unsqueeze(2).repeat(1, 1, self.tuned_embed_size).byte()
 		
 			# 3 * 1024 -> 256 by dimension reduction
@@ -203,87 +185,77 @@ class Model(nn.Module):
 			masks_def_results.append(masks_def)
 
 		return embedding_def_results, masks_def_results
-
-	# get the embeddings for literal definitions in WordNet
+	'''
+	'''
+	# get the embedding for literal definitions in WordNet
 	def get_embedding_def(self, word_lemma):
-		'''
-			@param: a list target word in the dataset
-			@return:
-			a list of all definition embeddings for all target words
-		'''
+
 		embedding_def_results = [self.definition_embeddings[word] for word in word_lemma]
 		return embedding_def_results
+	'''
 
 	# forward propagation selected sentence and definitions
-	def forward(self, sentences, word_idx):
+	def forward(self, sentence, word_idx):
 		
 		# preserve word lemma for future use
-		word_lemma = [sentences[i][word_idx[i]] for i in range(len(word_idx))]
-		# print("word lemma: {}".format(word_lemma))
+		word_lemma = sentence[word_idx]
 
-		# get the dimension-reduced ELMo embeddings
-		embeddings, masks = self._get_embedding(sentences)
+		# get the dimension-reduced ELMo embedding
+		embedding = self._get_embedding(sentence)
+		# print('em2 require: {}'.format(embedding.requires_grad))
 
-		# Run a Bi-LSTM and get the sense embeddings
+		# Run a Bi-LSTM and get the sense embedding
 		# (seq_len, batch, num_directions * hidden_size)
-		embeddings, (hn, cn) = self.wsd_lstm(embeddings)
+		embedding_new, (hn, cn) = self.wsd_lstm(embedding)
+		# print('lstm require: {}'.format(embedding_new.requires_grad))
 
-		# Extract the new word embeddings by index
-		# batch_size words, each has length 512
-		new_word_embs = self._extract_word(embeddings, word_idx)
-		
-		# Run fine-tuning MLP on new word embeddings and get sense embeddings
+		# Extract the new word embedding by index
+		word_embedding = embedding_new[word_idx, :, :]
+		# print('we require: {}'.format(word_embedding.requires_grad))
+
+		# Run fine-tuning MLP on new word embedding and get sense embedding
 		# batch_size words, each has length 10 for 10 possible senses
-		sense_embedding = self._run_fine_tune_MLP(new_word_embs, word_lemma, param = 'word_sense')
+		sense_embedding = self._run_fine_tune_MLP(word_embedding, word_lemma, param = 'word_sense')
+		sense_embedding = sense_embedding.view(self.output_size, -1)
+		# print('se require: {}'.format(sense_embedding.requires_grad))
 
 		return sense_embedding
-		
-	def _extract_word(self, embeddings, word_idx):
-		'''
-		Extract the new word embeddings by index
-		'''
-		batch_size = embeddings.size()[1]
-		new_word_embs = []
+	'''		
+	def _extract_word(self, embedding, word_idx):
+
+		batch_size = embedding.size()[1]
+		new_word_embs = nn.ParameterList()
 		for i in range(batch_size):
-			embeddings[word_idx[i], i, :] = embeddings[word_idx[i], i, :].to(self.device)
-			new_word_embs.append(embeddings[word_idx[i], i, :])
+			embedding[word_idx[i], i, :] = embedding[word_idx[i], i, :].to(self.device)
+			new_word_embs.append(embedding[word_idx[i], i, :])
 
 		return new_word_embs
+	'''
 
 	# 3 * 1024 -> 256 by dimension reduction
-	def _tune_embeddings(self, embeddings, param = None):
+	def _tune_embeddings(self, embedding, param = None):
 
 		if param == 'definition':
-			return torch.tanh(self.encode_dimension_reduction(embeddings))
+			return torch.tanh(self.encode_dimension_reduction(embedding))
 		else:
-			return torch.tanh(self.dimension_reduction_MLP(embeddings))
+			return torch.tanh(self.dimension_reduction_MLP(embedding))
 	
-	def _run_fine_tune_MLP(self, new_word_embs, word_lemma, param = None):
+	def _run_fine_tune_MLP(self, word_embedding, word_lemma, param = None):
 		
 		'''
-		Runs MLP on all word embeddings
+		Runs MLP on the target word embedding
 		'''
-		results = []
-		for idx, word_vec in enumerate(new_word_embs):
+		for layer in self.layers[param]:
+			word_embedding = layer(word_embedding)
 
-			# run the fine-tuning MLP and get the sense vector
-			for layer in self.layers[param]:
-				word_vec = layer(word_vec)
-
-			results.append(word_vec)
-			# print('\nWord lemma: {}\nWord sense embedding size: {}\nAll its senses: {}'.format(word_lemma[idx], word_vec.size(), self.all_senses[word_lemma[idx]]))
-
-		return results
+		# print('\nWord lemma: {}\nWord sense embedding size: {}\nAll its senses: {}'.format(word_lemma, word_embedding.size(), self.all_senses[word_lemma]))
+		return word_embedding
 
 	# used to convert WordNet definitions to vectors
 	# useless
+	'''
 	def _encode_definitions(self, definition_embeddings, word_lemma, param = None):
 		
-		'''
-		Runs MLP to get definition embeddings
-		Warning: code hard to read
-		index is mess!!!!!!!!
-		'''
 		results = []
 
 		# all the definitions of all input words
@@ -314,3 +286,4 @@ class Model(nn.Module):
 			results.append(def_of_one_word)
 
 		return results
+	'''
