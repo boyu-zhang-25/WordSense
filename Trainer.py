@@ -146,43 +146,33 @@ class Trainer(object):
 				sense_vec = self._model.forward(sentence, word_idx)
 				
 				# calculate loss pair-wise: sense vector and definition vector
-				losses = []
+				# accumulative loss
+				loss = 0.0
 
 				# check all definitions in the annotator response for the target word
 				for i, response in enumerate(self.train_Y[idx]):
 
 					# slice the particular definition for gradient calculation
 					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
-					# print(definition_vec.grad_fn)
 
 					if response:
 
 						# if annotator response is True
-						# decrease the distance
-						definition_loss = self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()))
-						losses.append(definition_loss)
-
-						# backprop for this specific definition
-						# retain graph for accumulative loss for the predicted sense embeddings
-						definition_loss.backward(retain_graph = True)
+						# increase the cosine similarity
+						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()))
 
 					else:
 
 						# if annotator response is False
-						# increase the distance
-						definition_loss = self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()))
-						losses.append(definition_loss)
+						# decrease the cosine similarity
+						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()))
 
-						# backprop for this specific definition
-						# retain graph for accumulative loss for the predicted sense embeddings
-						definition_loss.backward(retain_graph = True)
-
-					# individual definition gradient update
-					# also backprop accumulative loss for the predicted sense embeddings
-					optimizer.step()
+				# individual definition tensor gradient update
+				# also backprop the accumulative loss for the predicted sense embeddings
+				loss.backward()
+				optimizer.step()
 
 				# record training loss for each example
-				loss = sum(losses)
 				current_loss = loss.detach().item()
 				batch_losses.append(current_loss)
 				pbar.update(1)
