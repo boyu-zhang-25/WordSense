@@ -38,7 +38,6 @@ class Trainer(object):
 				pretraining = False,
 				regularization = None,
 				loss_type = 'cos',
-				pdist = torch.nn.PairwiseDistance(p = 2), # norm distance between 2 vectors
 				all_senses = None,
 				elmo_class = None, # for sense vector in the model
 				file_path = "",
@@ -48,7 +47,6 @@ class Trainer(object):
 		## Training parameters
 		self.epochs = epochs
 		self.elmo_class = elmo_class
-		self.pdist = pdist
 		self.train_batch_size = train_batch_size
 		self.predict_batch_size = predict_batch_size
 		self.pretraining = pretraining
@@ -121,13 +119,11 @@ class Trainer(object):
 		dev_losses = []
 		dev_rs = []
 		bad_count = 0
-		distance_all = []
 		
 		for epoch in range(self.epochs):
 			
-			# loss and distance for the cirrent iteration
+			# loss for the cirrent iteration
 			batch_losses = []
-			distance = []
 
 			# Turn on training mode which enables dropout.
 			self._model.train()			
@@ -164,13 +160,14 @@ class Trainer(object):
 
 					if response:
 
+						# if annotator response is True
+						# decrease the distance
 						definition_loss = self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()))
 						losses.append(definition_loss)
 
 						# backprop for this specific definition
-						definition_loss.backward(definition_vec, retain_graph = True)
+						definition_loss.backward(retain_graph = True)
 
-						distance.append(self.pdist(sense_vec, definition_vec))
 					else:
 
 						# if annotator response is False
@@ -179,7 +176,7 @@ class Trainer(object):
 						losses.append(definition_loss)
 
 						# backprop for this specific definition
-						definition_loss.backward(definition_vec, retain_graph = True)
+						definition_loss.backward(retain_graph = True)
 
 					# individual update for definition matrix
 					def_optimizer.step()
@@ -187,9 +184,8 @@ class Trainer(object):
 					# put back to original definition matrix
 					self._model.definition_embeddings[word_lemma][:, i] = definition_vec.view(self._model.output_size)
 
-				# backprop for the predicted sense embeddings
-				loss = sum(losses)
-				loss.backward()
+				# backprop accumulative loss for the predicted sense embeddings
+				sense_optimizer.step()
 
 				# BP the total loss for each definitiom
 				'''
@@ -212,10 +208,9 @@ class Trainer(object):
 				'''
 
 				# record training loss for each example
+				loss = sum(losses)
 				current_loss = loss.detach().item()
 				batch_losses.append(current_loss)
-
-				sense_optimizer.step()
 				pbar.update(1)
 					
 			pbar.close()
@@ -223,9 +218,6 @@ class Trainer(object):
 			# calculate the training loss of the current epoch
 			curr_train_loss = np.mean(batch_losses)
 			print("Epoch: {}, Mean Training Loss: {}".format(epoch + 1, curr_train_loss))
-
-			# calculate the change in distance between correct sense and definition
-			distance_all.append(torch.mean(torch.stack(distance)))
 
 			# save the best model
 			if curr_train_loss < best_loss:
@@ -241,5 +233,5 @@ class Trainer(object):
 			'''
 			train_losses.append(curr_train_loss)
 
-		# print(torch.eq(old, self._model.definition_embeddings['spring']))
-		return train_losses, dev_losses, dev_rs, distance_all
+		print(torch.eq(old, self._model.definition_embeddings['spring']))
+		return train_losses, dev_losses, dev_rs
