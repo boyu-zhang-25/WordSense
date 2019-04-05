@@ -54,7 +54,7 @@ class Trainer(object):
 		self.pretrain_data_name = pretrain_data_name
 
 		## optimizer 
-		self.sense_optimizer = optimizer_class
+		self.optimizer = optimizer_class
 		self.def_optimizer = optimizer_class
 		self.optim_wt_decay = optim_wt_decay
 		
@@ -107,7 +107,7 @@ class Trainer(object):
 
 		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
-		sense_optimizer = self.sense_optimizer(parameters, weight_decay = self.optim_wt_decay, **kwargs)
+		optimizer = self.optimizer(parameters, weight_decay = self.optim_wt_decay, **kwargs)
 
 		num_train = len(self.train_X)
 		# num_dev = len(self.dev_X)
@@ -136,7 +136,7 @@ class Trainer(object):
 			for idx, sentence in enumerate(self.train_X):
 				
 				# Zero grad
-				sense_optimizer.zero_grad()
+				optimizer.zero_grad()
 
 				# the target word
 				word_idx = train_idx[idx]
@@ -151,12 +151,9 @@ class Trainer(object):
 				# check all definitions in the annotator response for the target word
 				for i, response in enumerate(self.train_Y[idx]):
 
-					# carefully clone a leaf tensor for gradient calculation
-					definition_vec_old = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
-					definition_vec = definition_vec_old.clone().detach().requires_grad_(True)
-
-					def_optimizer = self.def_optimizer([definition_vec], weight_decay = self.optim_wt_decay, **kwargs)
-					def_optimizer.zero_grad()
+					# slice the particular definition for gradient calculation
+					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
+					# print(definition_vec.grad_fn)
 
 					if response:
 
@@ -166,6 +163,7 @@ class Trainer(object):
 						losses.append(definition_loss)
 
 						# backprop for this specific definition
+						# retain graph for accumulative loss for the predicted sense embeddings
 						definition_loss.backward(retain_graph = True)
 
 					else:
@@ -176,36 +174,12 @@ class Trainer(object):
 						losses.append(definition_loss)
 
 						# backprop for this specific definition
+						# retain graph for accumulative loss for the predicted sense embeddings
 						definition_loss.backward(retain_graph = True)
 
-					# individual update for definition matrix
-					def_optimizer.step()
-
-					# put back to original definition matrix
-					self._model.definition_embeddings[word_lemma][:, i] = definition_vec.view(self._model.output_size)
-
-				# backprop accumulative loss for the predicted sense embeddings
-				sense_optimizer.step()
-
-				# BP the total loss for each definitiom
-				'''
-				for i, response in enumerate(self.train_Y[idx]):
-
-					# carefully clone a leaf tensor for gradient calculation
-					definition_vec_old = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
-					definition_vec = definition_vec_old.clone().detach().requires_grad_(True)
-
-					def_optimizer = self.def_optimizer([definition_vec], weight_decay = self.optim_wt_decay, **kwargs)
-					def_optimizer.zero_grad()
-
-					loss.backward(definition_vec, retain_graph = True)
-					print(definition_vec.grad)
-					# individual update for definition matrix
-					def_optimizer.step()
-
-					# print(torch.eq(definition_vec_old, definition_vec))
-					self._model.definition_embeddings[word_lemma][:, i] = definition_vec.view(self._model.output_size)
-				'''
+					# individual definition gradient update
+					# also backprop accumulative loss for the predicted sense embeddings
+					optimizer.step()
 
 				# record training loss for each example
 				loss = sum(losses)
