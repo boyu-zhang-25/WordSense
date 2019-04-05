@@ -117,6 +117,7 @@ class Model(nn.Module):
 		# get ELMo embedding of the sentence
 		# torch.Size([3 (layers), sentence length, 1024 (word vector length)])
 		embedding = torch.from_numpy(self.elmo_class.embed_sentence(sentence))
+		print('119: {}'.format(embedding.requires_grad))
 
 		# pass to CUDA
 		embedding = embedding.to(self.device)
@@ -124,15 +125,18 @@ class Model(nn.Module):
 		# old: [3 (layers), sentence_length, 1024 (word vector length)]
 		# new: [sentence_length, 3 (layers), word_embedding_size]
 		embedding = embedding.permute(1, 0, 2)
+		print('126: {}'.format(embedding.requires_grad))
 
 		# concatenate 3 layers and reshape
 		# [sentence_length, batch_size, 3 * 1024]
 		batch_size = 1
 		sentence_length = embedding.size()[0]
 		embedding = embedding.contiguous().view(sentence_length, batch_size, -1)
+		print('132: {}'.format(embedding.requires_grad))
 		
 		# [sentence_length, batch_size, 256]
 		embedding = self._tune_embeddings(embedding, param = 'word_sense')
+		print('139: {}'.format(embedding.requires_grad))
 		# print('em require: {}'.format(embedding.requires_grad))
 
 		return embedding
@@ -207,17 +211,17 @@ class Model(nn.Module):
 		# Run a Bi-LSTM and get the sense embedding
 		# (seq_len, batch, num_directions * hidden_size)
 		embedding_new, (hn, cn) = self.wsd_lstm(embedding)
-		# print('lstm require: {}'.format(embedding_new.requires_grad))
+		print('213: {}'.format(embedding_new.requires_grad))
 
 		# Extract the new word embedding by index
 		word_embedding = embedding_new[word_idx, :, :]
-		# print('we require: {}'.format(word_embedding.requires_grad))
+		print('217: {}'.format(word_embedding.requires_grad))
 
 		# Run fine-tuning MLP on new word embedding and get sense embedding
 		# batch_size words, each has length 10 for 10 possible senses
 		sense_embedding = self._run_fine_tune_MLP(word_embedding, word_lemma, param = 'word_sense')
 		sense_embedding = sense_embedding.view(self.output_size, -1)
-		# print('se require: {}'.format(sense_embedding.requires_grad))
+		print('223: {}'.format(sense_embedding.requires_grad))
 
 		return sense_embedding
 	'''		
@@ -247,6 +251,7 @@ class Model(nn.Module):
 		'''
 		for layer in self.layers[param]:
 			word_embedding = layer(word_embedding)
+			print('253 loop: {}'.format(word_embedding.requires_grad))
 
 		# print('\nWord lemma: {}\nWord sense embedding size: {}\nAll its senses: {}'.format(word_lemma, word_embedding.size(), self.all_senses[word_lemma]))
 		return word_embedding

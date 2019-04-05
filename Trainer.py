@@ -3,8 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D  
 
 from torch.nn import Parameter
 from torch.nn import MSELoss, CrossEntropyLoss, CosineEmbeddingLoss
@@ -31,11 +29,6 @@ class Trainer(object):
 				optimizer_class = torch.optim.Adam,
 				optim_wt_decay = 0.,
 				epochs = 5,
-				train_batch_size = 64,
-				data_name = None,
-				pretrain_data_name = None,
-				predict_batch_size = 128,
-				pretraining = False,
 				regularization = None,
 				loss_type = 'cos',
 				all_senses = None,
@@ -47,15 +40,9 @@ class Trainer(object):
 		## Training parameters
 		self.epochs = epochs
 		self.elmo_class = elmo_class
-		self.train_batch_size = train_batch_size
-		self.predict_batch_size = predict_batch_size
-		self.pretraining = pretraining
-		self.data_name = data_name
-		self.pretrain_data_name = pretrain_data_name
 
 		## optimizer 
 		self.optimizer = optimizer_class
-		self.def_optimizer = optimizer_class
 		self.optim_wt_decay = optim_wt_decay
 		
 		# taget word index and senses list
