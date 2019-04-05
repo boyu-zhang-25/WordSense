@@ -23,7 +23,7 @@ class Model(nn.Module):
 				embedding_size = 1024, # ELMo embedding size
 				elmo_class = None,
 				tuned_embed_size = 256,
-				mlp_dropout = 0.3,
+				mlp_dropout = 0,
 				lstm_hidden_size = 256,
 				# encode_hidden_size = [512], # 1 hidden layer for definitio encoder
 				# encode_input_size = 1024, # encode of definitions from WordNet
@@ -75,7 +75,7 @@ class Model(nn.Module):
 		for word in self.all_senses.keys():
 
 			def_tuple = tuple([torch.randn(output_size, 1) for m in range(len(self.all_senses[word]))])
-			def_matrix = nn.Parameter(torch.cat(def_tuple, 1))
+			def_matrix = nn.Parameter(torch.cat(def_tuple, 1), requires_grad = True)
 			def_dict[word] = def_matrix
 
 		return def_dict
@@ -228,12 +228,6 @@ class Model(nn.Module):
 		# (seq_len, batch, num_directions * hidden_size)
 		embeddings, (hn, cn) = self.wsd_lstm(embeddings)
 
-		# convert masked tokens to zero after passing through Bi-lstm
-		# bilstm_masks = masks.repeat(1, 1, 2)
-		# [sentence_length, batch_size, word_vector_length]
-		# embeddings = embeddings * bilstm_masks.float()
-		# print('\nWord sense embedding size after bi-LSTM: {}'.format(embeddings.size()))
-
 		# Extract the new word embeddings by index
 		# batch_size words, each has length 512
 		new_word_embs = self._extract_word(embeddings, word_idx)
@@ -241,12 +235,6 @@ class Model(nn.Module):
 		# Run fine-tuning MLP on new word embeddings and get sense embeddings
 		# batch_size words, each has length 10 for 10 possible senses
 		sense_embedding = self._run_fine_tune_MLP(new_word_embs, word_lemma, param = 'word_sense')
-
-		# run definition encoder
-		# definition_embedding = self._encode_definitions(definition_embedding, word_lemma, param = 'definition')
-
-		# get the definition embeddings
-		# definition_embedding = self.get_embedding_def(word_lemma)
 
 		return sense_embedding
 		
@@ -283,7 +271,7 @@ class Model(nn.Module):
 				word_vec = layer(word_vec)
 
 			results.append(word_vec)
-			print('\nWord lemma: {}\nWord sense embedding size: {}\nAll its senses: {}'.format(word_lemma[idx], word_vec.size(), self.all_senses[word_lemma[idx]]))
+			# print('\nWord lemma: {}\nWord sense embedding size: {}\nAll its senses: {}'.format(word_lemma[idx], word_vec.size(), self.all_senses[word_lemma[idx]]))
 
 		return results
 
@@ -321,7 +309,7 @@ class Model(nn.Module):
 					def_embs.append(def_vec)
 
 				def_of_one_word.append(def_embs)
-				print('\nWord lemma: {}\nCurrent definition Index (according to WordNet): {} \nTotal definition embedding size: {}'.format(word_lemma[idx], i, (len(def_embs), len(def_embs[0]))))
+				# print('\nWord lemma: {}\nCurrent definition Index (according to WordNet): {} \nTotal definition embedding size: {}'.format(word_lemma[idx], i, (len(def_embs), len(def_embs[0]))))
 
 			results.append(def_of_one_word)
 
