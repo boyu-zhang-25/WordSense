@@ -66,9 +66,9 @@ For a given word, we can test the performance of the model by:
 ```
 As you may notice, this model only works for words within the lexicon of the WordNet. Otherwise, we do not have the definition embeddings.
 
-##Supersense:
+## Supersense:
 
-After the joint optimization of the above model, we are seeking a solution to the problem of unknown word aforementioned. We will adopt an idea called ‘supersense’ [Ciaramit, 2003](https://dl.acm.org/citation.cfm?id=1119377). Supersense, or Lexicographer, is a universal ontology across all vocabularies. It acts as a ‘genralization’ and ‘abstraction’ of word senses and is not affected by unseen words. 
+After the joint optimization of the above model, we are seeking a solution to the problem of unknown word aforementioned. We will adopt an idea called ‘supersense’ ([Ciaramit, 2003])(https://dl.acm.org/citation.cfm?id=1119377). Supersense, or Lexicographer, is a universal ontology across all vocabularies. It acts as a ‘genralization’ and ‘abstraction’ of word senses and is not affected by unseen words. 
 
 We will randomly initialize a [300, 1] vector for each supersense as supersense embedding. And when we are optimizing step 1 and step 2, we also optimize the embedding of supersense in the same way. Here is an intuitive example (let’s forget about ambiguity for a while): suppose the model knows `apple`, `banana`, and `orange`, and it also knows that these three words belong to the supersense `fruit` (this deterministic knowledge comes from artificial ontology like WordNet). Thus, for the input `apple`, the predicted embedding shall not only be closer to the actual `apple` sense embedding, but also closer to the `fruit` embedding. After training, if we input an unseen word `durian`, we will get nothing because we do not have the definition embedding for ‘durian’. But! We do have the universal supersense `fruit`, and our trained model is supposed to put `durian` close to `fruit`. Thus, our model would say: ‘oh I do not know what exactly it is, but at least I know it is a fruit!’
 
