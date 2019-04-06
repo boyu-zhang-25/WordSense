@@ -22,7 +22,7 @@ The [Universal Decompositional Semantics Word Sense dataset](http://decomp.io/pr
 
 The Universal Decompositional Semantics Dataset ([White et. al., 2016](https://www.aclweb.org/anthology/D16-1177)) contains 439312 sentences with target words extracted from the [Universal Dependency of English dataset by Stanford University](https://universaldependencies.org/). Annotators were hired to label the correct sense of each target word in the given sentences, and the choices of senses are provided by the WordNet. Below is an example:
 
-[data_example]()
+[data_example](https://github.com/cristianoBY/WordSense/blob/master/data_example.png)
 
 The sample sentence and index of the target word are given in the first place. Punctuations shall not be removed since they have important effects when generating contextual information. In the annotator response vector, a `1` at index `i` means the ith definition of the target word in the WordNet is the correct sense in the given sentence, and vice versa for `0`. Each of the senses also has a serial number, e.g., `spring.n.01`. For the above example, the annotator marked the first sense as 1 (true), and the corresponding WordNet definition is `the season of growth.` The other senses are 0 and not suitable for this sentence.
 
