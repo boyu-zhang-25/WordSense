@@ -8,6 +8,7 @@ import math
 from collections import Iterable, defaultdict
 import itertools
 from nltk.corpus import wordnet as wn
+
 '''
 The specific Synset method is lexname, e.g. wn.synsets('spring')[0].lexname(). 
 That should make it really easy to get the suspersenses.
@@ -21,6 +22,7 @@ And wn.synset('spring.n.02').lexname() returns 'noun.artifact'
 class Model(nn.Module):
 	def __init__(self, 
 				all_senses = None,
+				all_supersenses = None,
 				output_size = 300, # output size of each sense vector [300, 1]
 				embedding_size = 1024, # ELMo embedding size
 				elmo_class = None,
@@ -34,6 +36,7 @@ class Model(nn.Module):
 		# all senses and all definitions for all words
 		# useful for all purposes
 		self.all_senses = all_senses
+		self.all_supersenses = all_supersenses
 		self.elmo_class = elmo_class
 		self.device = device
 
@@ -61,12 +64,16 @@ class Model(nn.Module):
 		self._init_MLP(self.tuned_embed_size * 2, self.MLP_sizes, self.output_size, param = "word_sense")
 
 		# randomly initialize all vectors for definition embedding
-		def_dict = self._init_definition_embeddings(self.output_size, param = "definition_embedding")
+		def_dict = self._init_definition_embeddings(self.output_size)
 		self.definition_embeddings = nn.ParameterDict(def_dict)
+
+		# initiate all the supersense embeddings
+		super_dict = self._init_supersense_embeddings(self.output_size)
+		self.supersense_embeddings = nn.ParameterDict(super_dict)
 
 	# initialize all the definition embeddings for all words
 	# put into a matrix for each word
-	def _init_definition_embeddings(self, output_size, param = None):
+	def _init_definition_embeddings(self, output_size):
 
 		def_dict = {}
 
@@ -79,17 +86,27 @@ class Model(nn.Module):
 		return def_dict
 
 	# initialize all the supersense embeddings 
-	def _init_supersense_embeddings(self, output_size, param = None):
+	def _init_supersense_embeddings(self, output_size):
 
-		def_dict = {}
+		super_dict = {}
 
-		for word in self.all_senses.keys():
+		for supersense, tuple_set in self.all_supersenses.items():
 
-			def_tuple = tuple([torch.randn(output_size, 1) for m in range(len(self.all_senses[word]))])
-			def_matrix = nn.Parameter(torch.cat(def_tuple, 1), requires_grad = True)
-			def_dict[word] = def_matrix
+			# super sense vector is initialized as the mean of all its children
+			supersense_vec = torch.zeros(output_size, 1)
+			for super_tuple in tuple_set:
 
-		return def_dict
+				word_lemma = super_tuple[0]
+				word_sense = super_tuple[1]
+				index = self.all_senses[word_lemma].index(word_sense)
+				# print(self.definition_embeddings[word_lemma][:, index].size())
+				supersense_vec += self.definition_embeddings[word_lemma][:, index].view(output_size, -1)
+
+			supersense_vec = supersense_vec / len(tuple_set)
+			super_dict[supersense] = nn.Parameter(supersense_vec, requires_grad = True)
+
+		# print('done')
+		return super_dict
 
 	def _init_MLP(self, input_size, hidden_sizes, output_size, param = None):
 		'''
@@ -202,7 +219,7 @@ class Model(nn.Module):
 		'''
 		for layer in self.layers[param]:
 			word_embedding = layer(word_embedding)
-			print('253 loop: {}'.format(word_embedding.requires_grad))
+			# print('253 loop: {}'.format(word_embedding.requires_grad))
 
 		# print('\nWord lemma: {}\nWord sense embedding size: {}\nAll its senses: {}'.format(word_lemma, word_embedding.size(), self.all_senses[word_lemma]))
 		return word_embedding

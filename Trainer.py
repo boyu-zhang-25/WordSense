@@ -16,10 +16,10 @@ from tqdm import tqdm
 from tqdm import tqdm_notebook as tqdm_n
 import itertools
 
-from nltk.corpus import wordnet as wn
 from allennlp.modules.elmo import Elmo, batch_to_ids
 from allennlp.commands.elmo import ElmoEmbedder
 from model import *
+from nltk.corpus import wordnet as wn
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Device: {}'.format(device))
@@ -33,6 +33,7 @@ class Trainer(object):
 				regularization = None,
 				loss_type = 'cos',
 				all_senses = None,
+				all_supersenses = None, 
 				elmo_class = None, # for sense vector in the model
 				file_path = "",
 				device = device,
@@ -48,6 +49,7 @@ class Trainer(object):
 		
 		# taget word index and senses list
 		self.all_senses = all_senses
+		self.all_supersenses = all_supersenses
 
 		self._init_kwargs = kwargs
 		self.device = device
@@ -74,7 +76,7 @@ class Trainer(object):
 
 	# generate new model
 	def _initialize_trainer_model(self):
-		self._model = Model(device = self.device, all_senses = self.all_senses, elmo_class = self.elmo_class)
+		self._model = Model(device = self.device, all_senses = self.all_senses, elmo_class = self.elmo_class, all_supersenses = self.all_supersenses)
 		self._model = self._model.to(self.device)
 
 		print("#############   Model Parameters   ##############")
@@ -91,7 +93,7 @@ class Trainer(object):
 		self.dev_X, self.dev_Y = dev_X, dev_Y
 			
 		self._initialize_trainer_model()  
-		old = self._model.definition_embeddings['spring'].clone().detach()
+		# old = self._model.definition_embeddings['spring'].clone().detach()
 
 		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
@@ -142,6 +144,11 @@ class Trainer(object):
 
 					# slice the particular definition for gradient calculation
 					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
+						
+					# find the supersense
+					synset = self.all_senses[word_lemma][i]
+					supersense = wn.synset(synset).lexname().replace('.', '_')
+					supersense_vec = self._model.supersense_embeddings[supersense]
 
 					if response:
 
@@ -149,11 +156,15 @@ class Trainer(object):
 						# increase the cosine similarity
 						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()))
 
+						# loss for the supersense
+						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()))
+
 					else:
 
 						# if annotator response is False
 						# decrease the cosine similarity
 						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()))
+						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()))
 
 				# individual definition tensor gradient update
 				# also backprop the accumulative loss for the predicted sense embeddings
@@ -185,5 +196,5 @@ class Trainer(object):
 			'''
 			train_losses.append(curr_train_loss)
 
-		print(torch.eq(old, self._model.definition_embeddings['spring']))
+		# print(torch.eq(old, self._model.definition_embeddings['spring']))
 		return train_losses, dev_losses, dev_rs
