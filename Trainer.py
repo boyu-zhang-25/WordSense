@@ -112,7 +112,7 @@ class Trainer(object):
 		
 		for epoch in range(self.epochs):
 			
-			# loss for the cirrent iteration
+			# loss for the current iteration
 			batch_losses = []
 
 			# Turn on training mode which enables dropout.
@@ -181,12 +181,18 @@ class Trainer(object):
 			# calculate the training loss of the current epoch
 			curr_train_loss = np.mean(batch_losses)
 			print("Epoch: {}, Mean Training Loss: {}".format(epoch + 1, curr_train_loss))
+			train_losses.append(curr_train_loss)
 
-			# save the best model
-			if curr_train_loss < best_loss:
+			# dev loss of the current epoch
+			curr_dev_loss = np.mean(dev_loss(dev_X, dev_Y, dev_idx))
+			print("Epoch: {}, Mean Dev Loss: {}".format(epoch + 1, curr_dev_loss))
+			dev_losses.append(curr_dev_loss)
+
+			# save the best model by dev 
+			if curr_dev_loss < best_loss:
 				with open(self.best_model_file, 'wb') as f:
 					torch.save(self._model.state_dict(), f)
-				best_loss = curr_train_loss
+				best_loss = curr_dev_loss
 			
 			# early stopping
 			'''
@@ -194,7 +200,49 @@ class Trainer(object):
 				if (abs(curr_train_loss - train_losses[-1]) < 0.0001):
 					break
 			'''
-			train_losses.append(curr_train_loss)
 
 		# print(torch.eq(old, self._model.definition_embeddings['spring']))
 		return train_losses, dev_losses, dev_rs
+
+	# for dev and test
+	def dev_loss(self, dev_X, dev_Y, dev_idx):
+
+		dev_losses = []
+
+		for idx, sentence in enumerate(dev_X):
+
+			# the target word
+			word_idx = dev_idx[idx]
+			word_lemma = sentence[word_idx]
+
+			# model output
+			sense_vec = self._model.forward(sentence, word_idx)
+			loss = 0.0
+
+			# only count the loss for known words
+			if self.all_senses.get(word_lemma, 'not_exist') != 'not_exist':
+
+				# check all definitions in the annotator response for the target word
+				for i, response in enumerate(dev_Y[idx]):
+
+					# slice the particular definition for gradient calculation
+					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
+						
+					# find the supersense
+					synset = self.all_senses[word_lemma][i]
+					supersense = wn.synset(synset).lexname().replace('.', '_')
+					supersense_vec = self._model.supersense_embeddings[supersense]
+
+					if response:
+						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()))
+						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()))
+					else:
+						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()))
+						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()))
+
+			# record training loss for each example
+			dev_loss = loss.detach().item()
+			dev_losses.append(dev_loss)
+
+		return dev_losses
+			
