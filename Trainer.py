@@ -184,7 +184,7 @@ class Trainer(object):
 			train_losses.append(curr_train_loss)
 
 			# dev loss of the current epoch
-			curr_dev_loss = np.mean(dev_loss(dev_X, dev_Y, dev_idx))
+			curr_dev_loss = np.mean(self.dev_loss(dev_X, dev_Y, dev_idx))
 			print("Epoch: {}, Mean Dev Loss: {}".format(epoch + 1, curr_dev_loss))
 			dev_losses.append(curr_dev_loss)
 
@@ -240,9 +240,13 @@ class Trainer(object):
 						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()))
 						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()))
 
-			# record training loss for each example
-			dev_loss = loss.detach().item()
-			dev_losses.append(dev_loss)
+				# record training loss for each example
+				dev_loss = loss.detach().item()
+				dev_losses.append(dev_loss)
+
+			else:
+				print('new word in dev: {}\n sentence:{}'.format(word_lemma, sentence))
+				dev_losses.append(-1)
 
 		return dev_losses
 			
