@@ -86,7 +86,7 @@ class Trainer(object):
 		print("##################################################")
 	
 	# supports batch input
-	def train(self, train_X, train_Y, train_idx, dev_X, dev_Y, dev_idx, development = False, **kwargs):
+	def train(self, train_X, train_Y, train_idx, dev_X, dev_Y, dev_idx, **kwargs):
 
 		# train_Y is the annotator response
 		self.train_X, self.train_Y = train_X, train_Y
