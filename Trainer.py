@@ -152,12 +152,16 @@ class Trainer(object):
 
 					if response:
 
-						# if annotator response is True
-						# increase the cosine similarity
+						# if annotator response is True: increase the cosine similarity
+						# loss between sense embeddings and the definition embeddings
 						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()))
 
-						# loss for the supersense
+						# loss between the supersense and the sensen embeddings
 						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()))
+
+						# loss between the supersense and the definition embeddings
+						# they should always be similar
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()))
 
 					else:
 
@@ -165,6 +169,10 @@ class Trainer(object):
 						# decrease the cosine similarity
 						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()))
 						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()))
+
+						# loss between the supersense and the definition embeddings
+						# they should always be similar
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()))
 
 				# individual definition tensor gradient update
 				# also backprop the accumulative loss for the predicted sense embeddings
