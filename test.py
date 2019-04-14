@@ -484,7 +484,7 @@ plt.savefig('dev_loss.png')
 
 # test the model
 # modify to test only one word for now
-cos = nn.CosineSimilarity(dim = 0, eps = 1e-6)
+cos = nn.CosineSimilarity(dim = 0, eps = 1e-6).to(self.device)
 correct_count = 0
 known_test_size = 0
 unknown_test_size = 0
@@ -494,7 +494,7 @@ unknown_correct_count = 0
 for test_idx, test_sen in enumerate(new_test_X):
     
     test_lemma = test_sen[new_test_idx[test_idx]]
-    test_emb = trainer._model.forward(test_sen, new_test_idx[test_idx])
+    test_emb = trainer._model.forward(test_sen, new_test_idx[test_idx]).to(self.device)
     all_similarity = []
     
     # if it is a new word
@@ -508,7 +508,7 @@ for test_idx, test_sen in enumerate(new_test_X):
         for n, new_s in enumerate(all_test_senses[test_lemma]):
             
             new_super = wn.synset(new_s).lexname().replace('.', '_')
-            super_vec = trainer._model.supersense_embeddings[new_super].view(trainer._model.output_size, -1)
+            super_vec = trainer._model.supersense_embeddings[new_super].view(trainer._model.output_size, -1).to(self.device)
             cos_sim = cos(test_emb, super_vec)
             
             if cos_sim > best_sim:
@@ -529,7 +529,7 @@ for test_idx, test_sen in enumerate(new_test_X):
         known_test_size += 1
         
         for k, sense in enumerate(new_all_senses[test_lemma]):
-            definition_vec = trainer._model.definition_embeddings[test_lemma][:, k].view(trainer._model.output_size, -1)
+            definition_vec = trainer._model.definition_embeddings[test_lemma][:, k].view(trainer._model.output_size, -1).to(self.device)
             cos_sim = cos(test_emb, definition_vec)
             all_similarity.append(cos_sim)
         # print(all_similarity)
