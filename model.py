@@ -79,11 +79,11 @@ class Model(nn.Module):
 
 		for word in self.all_senses.keys():
 
-			print(word)
 			def_tuple = tuple([torch.randn(output_size, 1) for m in range(len(self.all_senses[word]))])
 			def_matrix = nn.Parameter(torch.cat(def_tuple, 1), requires_grad = True)
 			def_dict[word] = def_matrix
 
+		print(len(def_dict.keys()))
 		return def_dict
 
 	# initialize all the supersense embeddings 
