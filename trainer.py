@@ -133,7 +133,7 @@ class Trainer(object):
 				word_lemma = sentence[word_idx]
 
 				# model output
-				sense_vec = self._model.forward(sentence, word_idx)
+				sense_vec = self._model.forward(sentence, word_idx).view(1, -1)
 				
 				# calculate loss pair-wise: sense vector and definition vector
 				# accumulative loss
@@ -143,36 +143,36 @@ class Trainer(object):
 				for i, response in enumerate(self.train_Y[idx]):
 
 					# slice the particular definition for gradient calculation
-					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
+					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
 						
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
-					supersense_vec = self._model.supersense_embeddings[supersense]
+					supersense_vec = self._model.supersense_embeddings[supersense].view(1, -1)
 
 					if response:
 
 						# if annotator response is True: increase the cosine similarity
 						# loss between sense embeddings and the definition embeddings
-						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, definition_vec, torch.ones(1).to(self.device))
 
 						# loss between the supersense and the sensen embeddings
-						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, torch.ones(1).to(self.device))
 
 						# loss between the supersense and the definition embeddings
 						# they should always be similar
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
 
 					else:
 
 						# if annotator response is False
 						# decrease the cosine similarity
-						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()).to(self.device))
-						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, definition_vec, -torch.ones(1).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, -torch.ones(1).to(self.device))
 
 						# loss between the supersense and the definition embeddings
 						# they should always be similar
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
 
 				# individual definition tensor gradient update
 				# also backprop the accumulative loss for the predicted sense embeddings
@@ -224,7 +224,7 @@ class Trainer(object):
 			word_lemma = sentence[word_idx]
 
 			# model output
-			sense_vec = self._model.forward(sentence, word_idx)
+			sense_vec = self._model.forward(sentence, word_idx).view(1, -1)
 			loss = 0.0
 
 			# only count the loss for known words
@@ -234,22 +234,22 @@ class Trainer(object):
 				for i, response in enumerate(dev_Y[idx]):
 
 					# slice the particular definition for gradient calculation
-					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(self._model.output_size, -1)
+					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
 						
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
-					supersense_vec = self._model.supersense_embeddings[supersense]
+					supersense_vec = self._model.supersense_embeddings[supersense].view(1, -1)
 
 					if response:
-						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()).to(self.device))
-						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, definition_vec, torch.ones(1).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, torch.ones(1).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
 
 					else:
-						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()).to(self.device))
-						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()).to(self.device))
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, definition_vec, -torch.ones(1).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, -torch.ones(1).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
 
 				# record training loss for each example
 				dev_loss = loss.detach().item()
@@ -260,4 +260,4 @@ class Trainer(object):
 				dev_losses.append(-1)
 
 		return dev_losses
-			
+

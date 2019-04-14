@@ -330,7 +330,7 @@ def read_file():
 train_X, train_Y, test_X, test_Y, dev_X, dev_Y, train_word_idx, test_word_idx, dev_word_idx = read_file()
 
 # test on one word
-word_choice = 'level'
+word_choice = 'place'
 
 new_train_X = []
 new_train_Y = []
@@ -408,7 +408,7 @@ elmo = ElmoEmbedder()
 
 
 # trainer
-epochs = 30
+epochs = 100
 
 # test on one word
 # trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
@@ -449,7 +449,7 @@ with open('dev_loss.tsv', mode = 'w') as loss_file:
 
 
 plt.figure(1)
-rc('text', usetex = True)
+# rc('text', usetex = True)
 rc('font', family='serif')
 plt.grid(True, ls = '-.',alpha = 0.4)
 plt.plot(train_losses, ms = 4, marker = 's', label = "Train Loss")
@@ -466,7 +466,7 @@ plt.savefig('train_loss.png')
 
 
 plt.figure(2)
-rc('text', usetex = True)
+# rc('text', usetex = True)
 rc('font', family='serif')
 plt.grid(True, ls = '-.',alpha = 0.4)
 plt.plot(dev_losses, ms = 4, marker = 'o', label = "Dev Loss")
@@ -484,7 +484,7 @@ plt.savefig('dev_loss.png')
 
 # test the model
 # modify to test only one word for now
-cos = nn.CosineSimilarity(dim = 0, eps = 1e-6).to(self.device)
+cos = nn.CosineSimilarity(dim = 1, eps = 1e-6).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 correct_count = 0
 known_test_size = 0
 unknown_test_size = 0
@@ -494,7 +494,7 @@ unknown_correct_count = 0
 for test_idx, test_sen in enumerate(new_test_X):
     
     test_lemma = test_sen[new_test_idx[test_idx]]
-    test_emb = trainer._model.forward(test_sen, new_test_idx[test_idx]).to(self.device)
+    test_emb = trainer._model.forward(test_sen, new_test_idx[test_idx]).view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     all_similarity = []
     
     # if it is a new word
@@ -508,7 +508,7 @@ for test_idx, test_sen in enumerate(new_test_X):
         for n, new_s in enumerate(all_test_senses[test_lemma]):
             
             new_super = wn.synset(new_s).lexname().replace('.', '_')
-            super_vec = trainer._model.supersense_embeddings[new_super].view(trainer._model.output_size, -1).to(self.device)
+            super_vec = trainer._model.supersense_embeddings[new_super].view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             cos_sim = cos(test_emb, super_vec)
             
             if cos_sim > best_sim:
@@ -529,12 +529,12 @@ for test_idx, test_sen in enumerate(new_test_X):
         known_test_size += 1
         
         for k, sense in enumerate(new_all_senses[test_lemma]):
-            definition_vec = trainer._model.definition_embeddings[test_lemma][:, k].view(trainer._model.output_size, -1).to(self.device)
+            definition_vec = trainer._model.definition_embeddings[test_lemma][:, k].view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             cos_sim = cos(test_emb, definition_vec)
             all_similarity.append(cos_sim)
         # print(all_similarity)
         test_result = all_similarity.index(max(all_similarity))
-        # print("result index: {}".format(test_result))
+        print("result index: {}".format(test_result))
         if new_test_Y[test_idx][test_result] == 1:
             correct_count += 1
 
