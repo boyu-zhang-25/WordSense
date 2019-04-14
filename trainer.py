@@ -154,25 +154,25 @@ class Trainer(object):
 
 						# if annotator response is True: increase the cosine similarity
 						# loss between sense embeddings and the definition embeddings
-						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size())).to(self.device)
+						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()).to(self.device))
 
 						# loss between the supersense and the sensen embeddings
-						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size())).to(self.device)
+						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
 
 						# loss between the supersense and the definition embeddings
 						# they should always be similar
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size())).to(self.device)
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
 
 					else:
 
 						# if annotator response is False
 						# decrease the cosine similarity
-						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size())).to(self.device)
-						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size())).to(self.device)
+						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()).to(self.device))
 
 						# loss between the supersense and the definition embeddings
 						# they should always be similar
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size())).to(self.device)
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
 
 				# individual definition tensor gradient update
 				# also backprop the accumulative loss for the predicted sense embeddings
