@@ -83,7 +83,7 @@ class Model(nn.Module):
 			def_matrix = nn.Parameter(torch.cat(def_tuple, 1), requires_grad = True)
 			def_dict[word] = def_matrix
 
-		print(def_dict['double'])
+		print(def_dict['double'].size())
 		return def_dict
 
 	# initialize all the supersense embeddings 
