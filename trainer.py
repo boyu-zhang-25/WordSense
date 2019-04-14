@@ -242,11 +242,14 @@ class Trainer(object):
 					supersense_vec = self._model.supersense_embeddings[supersense]
 
 					if response:
-						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()))
-						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()))
+						loss += self.loss(sense_vec, definition_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
+
 					else:
-						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()))
-						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()))
+						loss += self.loss(sense_vec, definition_vec, -torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, -torch.ones(sense_vec.size()).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, torch.ones(sense_vec.size()).to(self.device))
 
 				# record training loss for each example
 				dev_loss = loss.detach().item()
