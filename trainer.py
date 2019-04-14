@@ -137,7 +137,7 @@ class Trainer(object):
 				
 				# calculate loss pair-wise: sense vector and definition vector
 				# accumulative loss
-				loss = 0.0
+				loss = torch.zeors(1).to(self.device)
 
 				# check all definitions in the annotator response for the target word
 				for i, response in enumerate(self.train_Y[idx]):
