@@ -97,7 +97,7 @@ class Trainer(object):
 
 		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
-		optimizer = self.optimizer(parameters, weight_decay = self.optim_wt_decay, **kwargs)
+		optimizer = self.optimizer(parameters, lr = 0.01, weight_decay = self.optim_wt_decay, **kwargs)
 
 		num_train = len(self.train_X)
 		# num_dev = len(self.dev_X)
