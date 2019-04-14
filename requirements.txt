@@ -1,0 +1,6 @@
+allennlp==0.8.2
+numpy==1.16.2
+torch==1.0.1.post2
+tqdm==4.31.1
+pandas==0.24.1
+nltk==3.4
