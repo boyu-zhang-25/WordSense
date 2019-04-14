@@ -121,7 +121,8 @@ class Trainer(object):
 			
 			# time print
 			pbar = tqdm_n(total = num_train)
-			
+			s_list = []
+
 			# SGD batch = 1
 			for idx, sentence in enumerate(self.train_X):
 				
@@ -133,8 +134,10 @@ class Trainer(object):
 				word_lemma = sentence[word_idx]
 
 				# model output
-				sense_vec = self._model.forward(sentence, word_idx).view(1, -1)
-				
+				sense_vec = self._model.forward(sentence, word_idx)
+				print(sense_vec)
+				# s_list.append(sense_vec)
+
 				# calculate loss pair-wise: sense vector and definition vector
 				# accumulative loss
 				loss = torch.zeros(1).to(self.device)
@@ -178,6 +181,12 @@ class Trainer(object):
 				# also backprop the accumulative loss for the predicted sense embeddings
 				loss.backward()
 				optimizer.step()
+
+				'''
+				for o in range(len(s_list)):
+					for g in range(len(s_list)):
+						print("o: {}, g: {}\n{}".format(o, g, torch.eq(s_list[o], s_list[g])))
+				'''
 
 				# record training loss for each example
 				current_loss = loss.detach().item()

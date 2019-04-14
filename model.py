@@ -185,6 +185,7 @@ class Model(nn.Module):
 		# get the dimension-reduced ELMo embedding
 		embedding = self._get_embedding(sentence)
 		# print('em2 require: {}'.format(embedding.requires_grad))
+		# print(embedding)
 
 		# Run a Bi-LSTM and get the sense embedding
 		# (seq_len, batch, num_directions * hidden_size)
@@ -194,13 +195,14 @@ class Model(nn.Module):
 		# Extract the new word embedding by index
 		word_embedding = embedding_new[word_idx, :, :]
 		# print('217: {}'.format(word_embedding.requires_grad))
+		# print(word_embedding)
 
 		# Run fine-tuning MLP on new word embedding and get sense embedding
 		# batch_size words, each has length 10 for 10 possible senses
 		sense_embedding = self._run_fine_tune_MLP(word_embedding, word_lemma, param = 'word_sense')
 		sense_embedding = sense_embedding.view(self.output_size, -1)
 		# print('223: {}'.format(sense_embedding.requires_grad))
-
+		# print(sense_embedding)
 		return sense_embedding
 
 
