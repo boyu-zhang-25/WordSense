@@ -409,7 +409,7 @@ elmo = ElmoEmbedder()
 
 
 # trainer
-epochs = 100
+epochs = 1
 
 # test on one word
 trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
