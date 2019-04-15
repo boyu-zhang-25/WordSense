@@ -66,6 +66,7 @@ class Model(nn.Module):
 		# randomly initialize all vectors for definition embedding
 		def_dict = self._init_definition_embeddings(self.output_size)
 		self.definition_embeddings = nn.ParameterDict(def_dict)
+		# self.definition_embeddings = nn.ParameterDict(def_dict)
 
 		# initiate all the supersense embeddings
 		super_dict = self._init_supersense_embeddings(self.output_size)
@@ -83,7 +84,6 @@ class Model(nn.Module):
 			def_matrix = nn.Parameter(torch.cat(def_tuple, 1), requires_grad = True)
 			def_dict[word] = def_matrix
 
-		print(def_dict['double'].size())
 		return def_dict
 
 	# initialize all the supersense embeddings 

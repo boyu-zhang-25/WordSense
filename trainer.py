@@ -76,7 +76,7 @@ class Trainer(object):
 
 	# generate new model
 	def _initialize_trainer_model(self):
-		print(len(self.all_senses.keys()))
+		# print(len(self.all_senses.keys()))
 		self._model = Model(device = self.device, all_senses = self.all_senses, elmo_class = self.elmo_class, all_supersenses = self.all_supersenses)
 		self._model = self._model.to(self.device)
 
@@ -136,7 +136,7 @@ class Trainer(object):
 
 				# model output
 				sense_vec = self._model.forward(sentence, word_idx)
-				print(sense_vec)
+				# print(sense_vec)
 				# s_list.append(sense_vec)
 
 				# calculate loss pair-wise: sense vector and definition vector
