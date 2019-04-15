@@ -132,7 +132,7 @@ class Trainer(object):
 
 				# the target word
 				word_idx = train_idx[idx]
-				word_lemma = sentence[word_idx]
+				word_lemma = '____' + sentence[word_idx]
 
 				# model output
 				sense_vec = self._model.forward(sentence, word_idx)
@@ -231,7 +231,7 @@ class Trainer(object):
 
 			# the target word
 			word_idx = dev_idx[idx]
-			word_lemma = sentence[word_idx]
+			word_lemma = '_____' + sentence[word_idx]
 
 			# model output
 			sense_vec = self._model.forward(sentence, word_idx).view(1, -1)

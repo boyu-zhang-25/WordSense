@@ -80,6 +80,7 @@ class Model(nn.Module):
 
 		for word in self.all_senses.keys():
 
+			# construct definitionn embeddings and put in a matrix
 			def_tuple = tuple([torch.randn(output_size, 1) for m in range(len(self.all_senses[word]))])
 			def_matrix = nn.Parameter(torch.cat(def_tuple, 1), requires_grad = True)
 			def_dict[word] = def_matrix
@@ -97,12 +98,15 @@ class Model(nn.Module):
 			supersense_vec = torch.zeros(output_size, 1)
 			for super_tuple in tuple_set:
 
+				# remove the underscore
 				word_lemma = super_tuple[0]
 				word_sense = super_tuple[1]
 				index = self.all_senses[word_lemma].index(word_sense)
+
 				# print(self.definition_embeddings[word_lemma][:, index].size())
 				supersense_vec += self.definition_embeddings[word_lemma][:, index].view(output_size, -1)
 
+			# supersense embeddings are initialized as the mean of all its children
 			supersense_vec = supersense_vec / len(tuple_set)
 			super_dict[supersense] = nn.Parameter(supersense_vec, requires_grad = True)
 
@@ -181,7 +185,7 @@ class Model(nn.Module):
 	def forward(self, sentence, word_idx):
 		
 		# preserve word lemma for future use
-		word_lemma = sentence[word_idx]
+		word_lemma = '____' + sentence[word_idx]
 
 		# get the dimension-reduced ELMo embedding
 		embedding = self._get_embedding(sentence)
