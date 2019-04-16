@@ -98,7 +98,7 @@ class Trainer(object):
 
 		# trainer setup
 		parameters = [p for p in self._model.parameters() if p.requires_grad]
-		optimizer = self.optimizer(parameters, lr = 0.01, weight_decay = self.optim_wt_decay, **kwargs)
+		optimizer = self.optimizer(parameters, weight_decay = self.optim_wt_decay, **kwargs)
 
 		num_train = len(self.train_X)
 		# num_dev = len(self.dev_X)
@@ -234,7 +234,7 @@ class Trainer(object):
 			word_lemma = '_____' + sentence[word_idx]
 
 			# model output
-			sense_vec = self._model.forward(sentence, word_idx).view(1, -1)
+			sense_vec = self._model.forward(sentence, word_idx)
 			loss = 0.0
 
 			# only count the loss for known words
