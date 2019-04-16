@@ -147,6 +147,7 @@ def get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data):
         # in case of errors in the dataset
         # correct it to the original word the annotator saw
         # add a under score to avoid name conflict with pytorch build-in attributes
+        old = '____' + word_lemma
         if wsd_data[i].get('Split') == 'train':
             sentence = train_data[sentence_number]
             word_lemma = '____' + [word.get('lemma') for word in sentence][word_index]
@@ -156,7 +157,13 @@ def get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data):
         else:
             sentence = dev_data[sentence_number]
             word_lemma = '____' + [word.get('lemma') for word in sentence][word_index]
-
+        
+        # index error in UD: some sentences start with '<<'
+        # have wrong index
+        if [word.get('lemma') for word in sentence][0] == '<<' and [word.get('lemma') for word in sentence][-1] != '>>':
+            if '____' + [word.get('lemma') for word in sentence][word_index] != old:
+                word_lemma = old
+                
         # senses for train and dev
         # preserve unknown words
         if wsd_data[i].get('Split') != 'test':
@@ -201,6 +208,15 @@ def get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data):
                 all_test_definitions[word_lemma] = []
                 all_test_definitions[word_lemma].append(definition)            
         
+    # UD error in 'gam' and 'game'
+    all_test_senses['____game'] = all_test_senses['____game'][:-1]
+    all_test_definitions['____game'] = all_test_definitions['____game'][:-1]
+    
+    # print(all_senses['____game'])
+    # print(len(all_definitions['____game']))
+    # print(len(all_test_definitions['____game']))
+    # print(all_test_senses['____game'])
+    
     return all_senses, all_definitions, all_supersenses, all_test_senses, all_test_definitions
 
 
@@ -214,8 +230,10 @@ all_senses, all_definitions, all_supersenses, all_test_senses, all_test_definiti
 # In[7]:
 
 
-# print(all_test_senses['data'])
-# print(all_senses['data'])
+print(all_senses['____a'])
+print(all_senses['____2'])
+print(all_definitions['____20'])
+print(all_definitions['____aa'])
 
 
 # In[8]:
@@ -474,7 +492,7 @@ elmo = ElmoEmbedder()
 
 
 # trainer
-epochs = 0
+epochs = 50
 
 # test on one word
 trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
@@ -545,11 +563,57 @@ plt.tight_layout()
 plt.savefig('dev_loss.png')
 
 
-# In[20]:
+# In[17]:
+
+
+# debug
+# should print nothing
+print('train')
+for test_idx, test_sen in enumerate(train_X):
+    test_lemma = '____' + test_sen[train_word_idx[test_idx]]
+    emb_length = len(all_senses.get(test_lemma))
+    y = len(train_Y[test_idx])
+    
+    if emb_length != y:
+        print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
+
+
+# In[23]:
+
+
+# debug
+
+print('test')
+for test_idx, test_sen in enumerate(test_X):
+    test_lemma = '____' + test_sen[test_word_idx[test_idx]]
+    emb_length = len(all_test_senses.get(test_lemma))
+    y = len(test_Y[test_idx])
+    
+    if emb_length != y:
+        print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
+
+
+# In[24]:
+
+
+# debug
+
+print('dev')
+for test_idx, test_sen in enumerate(dev_X):
+    test_lemma = '____' + test_sen[dev_word_idx[test_idx]]
+    emb_length = len(all_senses.get(test_lemma))
+    y = len(dev_Y[test_idx])
+    
+    if emb_length != y:
+        print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
+
+
+# In[25]:
 
 
 # debug
 # should print nothing 
+print('train')
 for test_idx, test_sen in enumerate(train_X):
     test_lemma = '____' + test_sen[train_word_idx[test_idx]]
     if all_senses.get(test_lemma, 'e') == 'e':
@@ -557,11 +621,12 @@ for test_idx, test_sen in enumerate(train_X):
         print(test_sen)
 
 
-# In[21]:
+# In[26]:
 
 
 # debug
 # should print nothing 
+print('test')
 for test_idx, test_sen in enumerate(test_X):
     test_lemma = '____' + test_sen[test_word_idx[test_idx]]
     if all_test_senses.get(test_lemma, 'e') == 'e':
