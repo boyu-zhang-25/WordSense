@@ -12,7 +12,6 @@ from io import open
 from conllu import parse_incr
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from nltk.corpus import wordnet as wn
 import numpy as np
 
@@ -20,7 +19,29 @@ import numpy as np
 # In[2]:
 
 
+from torch.nn import CosineEmbeddingLoss
+l = torch.nn.CosineEmbeddingLoss()
+cs = torch.nn.CosineSimilarity(dim = 1)
+v1 = torch.randn(1, 5)
+v2 = torch.randn(1, 5)
+
+print(v1)
+print(v1.view(5, 1))
+
+def ang(a, b):
+    return torch.dot(a, b) / (torch.norm(a) * torch.norm(b))
+
+print(1 - ang(v1[0], v2[0]))
+y = torch.ones(1)
+print(l(v1, v2, y).item())
+print(1 - cs(v1, v2))
+
+
+# In[3]:
+
+
 # parse the WSD dataset first
+# and retrieve all sentences from the EUD
 
 '''
 Copyright@
@@ -32,6 +53,26 @@ To appear in *Proceedings of the Conference on Empirical Methods in Natural Lang
 
 def parse_wsd_data():
 
+    # parse the EUD-EWT conllu files and retrieve the sentences
+    # remove all punctuation?
+    train_file = open("data/UD_English-EWT/en_ewt-ud-train.conllu", "r", encoding="utf-8")
+    train_data = list(parse_incr(train_file))
+    # train_data = [[''.join(c for c in word.get('lemma') if c not in string.punctuation) for word in token_list] for token_list in train_data]
+    # train_data = [[word for word in s if word] for s in train_data]
+    print('Parsed {} training data from UD_English-EWT/en_ewt-ud-train.conllu.'.format(len(train_data)))
+
+    test_file = open("data/UD_English-EWT/en_ewt-ud-test.conllu", "r", encoding="utf-8")
+    test_data = list(parse_incr(test_file))
+    # test_data = [[''.join(c for c in word.get('lemma') if c not in string.punctuation) for word in token_list] for token_list in test_data]
+    # test_data = [[word for word in s if word] for s in test_data]
+    print('Parsed {} testing data from UD_English-EWT/en_ewt-ud-test.conllu.'.format(len(test_data)))
+
+    dev_file = open("data/UD_English-EWT/en_ewt-ud-dev.conllu", "r", encoding="utf-8")
+    dev_data = list(parse_incr(dev_file))
+    # dev_data = [[''.join(c for c in word.get('lemma') if c not in string.punctuation) for word in token_list] for token_list in dev_data]
+    # dev_data = [[word for word in s if word] for s in dev_data]
+    print('Parsed {} dev data from UD_English-EWT/en_ewt-ud-dev.conllu.'.format(len(dev_data)))
+
     # parse the WSD dataset
     wsd_data = []
 
@@ -42,24 +83,24 @@ def parse_wsd_data():
 
         # store the data: ordered dict row
         for row in tsv_reader:                                
-
+                            
             # each data vector
             wsd_data.append(row)
 
         # make sure all data are parsed
         print('Parsed {} word sense data from White et. al., 2016.'.format(len(wsd_data)))
 
-    return wsd_data
-
-
-# In[3]:
-
-
-# get the raw wsd data
-wsd_data = parse_wsd_data()
+    return wsd_data, train_data, test_data, dev_data
 
 
 # In[4]:
+
+
+# get the raw wsd data
+wsd_data, train_data, test_data, dev_data = parse_wsd_data()
+
+
+# In[5]:
 
 
 '''
@@ -72,7 +113,7 @@ index provided by WSD dataset by White et. al.
 '''
 # get all the senses and definitions for each word from WSD dataset
 # order of senses and definitions are in order
-def get_all_senses_and_definitions(wsd_data):
+def get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data):
 
     # all senses for each word in train and dev
     # supersense is shared 
@@ -96,10 +137,26 @@ def get_all_senses_and_definitions(wsd_data):
         # the index in EUD is 1-based!!!
         sentence_number = int(sentence_id.split(' ')[-1]) - 1
         word_index = int(wsd_data[i].get('Arg.Token')) - 1
+        
         word_lemma = wsd_data[i].get('Arg.Lemma')
         word_sense = wsd_data[i].get('Synset')
         response = wsd_data[i].get('Sense.Response')
         
+        # add a under score to avoid name conflict with pytorch build-in attributes
+        # get the original word
+        # in case of errors in the dataset
+        # correct it to the original word the annotator saw
+        # add a under score to avoid name conflict with pytorch build-in attributes
+        if wsd_data[i].get('Split') == 'train':
+            sentence = train_data[sentence_number]
+            word_lemma = '____' + [word.get('lemma') for word in sentence][word_index]
+        elif wsd_data[i].get('Split') == 'test':
+            sentence = test_data[sentence_number]
+            word_lemma = '____' + [word.get('lemma') for word in sentence][word_index]
+        else:
+            sentence = dev_data[sentence_number]
+            word_lemma = '____' + [word.get('lemma') for word in sentence][word_index]
+
         # senses for train and dev
         # preserve unknown words
         if wsd_data[i].get('Split') != 'test':
@@ -147,14 +204,21 @@ def get_all_senses_and_definitions(wsd_data):
     return all_senses, all_definitions, all_supersenses, all_test_senses, all_test_definitions
 
 
-# In[5]:
+# In[6]:
 
 
 # get all the senses and definitions
-all_senses, all_definitions, all_supersenses, all_test_senses, all_test_definitions = get_all_senses_and_definitions(wsd_data)
+all_senses, all_definitions, all_supersenses, all_test_senses, all_test_definitions = get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data)
 
 
-# In[6]:
+# In[7]:
+
+
+# print(all_test_senses['data'])
+# print(all_senses['data'])
+
+
+# In[8]:
 
 
 # test for the WordNet NLTK API
@@ -175,7 +239,7 @@ for _ in wn.synsets('spring'):
 '''
 
 
-# In[7]:
+# In[9]:
 
 
 # read the train, dev, test datasets from processed files
@@ -323,16 +387,16 @@ def read_file():
     return train_X, train_Y, test_X, test_Y, dev_X, dev_Y, train_word_idx, test_word_idx, dev_word_idx
 
 
-# In[8]:
+# In[10]:
 
 
 # get all the structured data
 train_X, train_Y, test_X, test_Y, dev_X, dev_Y, train_word_idx, test_word_idx, dev_word_idx = read_file()
 
 # test on one word
-# word_choice = 'place'
-
 '''
+word_choice = 'level'
+
 new_train_X = []
 new_train_Y = []
 new_train_idx = []
@@ -395,7 +459,8 @@ for supersense in all_supersenses.keys():
                 new_all_supersenses[supersense] = {(word_choice, tuples[1])}
 '''
 
-# In[9]:
+
+# In[11]:
 
 
 from model import *
@@ -405,18 +470,18 @@ from allennlp.commands.elmo import ElmoEmbedder
 elmo = ElmoEmbedder()
 
 
-# In[10]:
+# In[12]:
 
 
 # trainer
-epochs = 1
+epochs = 0
 
 # test on one word
 trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
 # trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = new_all_senses, all_supersenses = new_all_supersenses)
 
 
-# In[11]:
+# In[13]:
 
 
 # train the model
@@ -426,7 +491,7 @@ train_losses, dev_losses, dev_rs = trainer.train(train_X, train_Y, train_word_id
 # train_losses, dev_losses, dev_rs = trainer.train(new_train_X, new_train_Y, new_train_idx, new_dev_X, new_dev_Y, new_dev_idx)
 
 
-# In[12]:
+# In[14]:
 
 
 # plot the learning curve
@@ -446,7 +511,7 @@ with open('dev_loss.tsv', mode = 'w') as loss_file:
     csv_writer.writerow(dev_losses)
 
 
-# In[13]:
+# In[15]:
 
 
 plt.figure(1)
@@ -455,7 +520,7 @@ rc('font', family='serif')
 plt.grid(True, ls = '-.',alpha = 0.4)
 plt.plot(train_losses, ms = 4, marker = 's', label = "Train Loss")
 plt.legend(loc = "best")
-title = "Cosine Similarity Loss (number of examples: " + str(len(new_train_X)) + ")"
+title = "Cosine Similarity Loss (number of examples: " + str(len(train_X)) + ")"
 plt.title(title)
 plt.ylabel('Loss')
 plt.xlabel('Number of Iteration')
@@ -463,7 +528,7 @@ plt.tight_layout()
 plt.savefig('train_loss.png')
 
 
-# In[14]:
+# In[16]:
 
 
 plt.figure(2)
@@ -472,7 +537,7 @@ rc('font', family='serif')
 plt.grid(True, ls = '-.',alpha = 0.4)
 plt.plot(dev_losses, ms = 4, marker = 'o', label = "Dev Loss")
 plt.legend(loc = "best")
-title = "Cosine Similarity Loss (number of examples: " + str(len(new_dev_X)) + ")"
+title = "Cosine Similarity Loss (number of examples: " + str(len(dev_X)) + ")"
 plt.title(title)
 plt.ylabel('Loss')
 plt.xlabel('Number of Iteration')
@@ -480,23 +545,52 @@ plt.tight_layout()
 plt.savefig('dev_loss.png')
 
 
-# In[19]:
+# In[20]:
+
+
+# debug
+# should print nothing 
+for test_idx, test_sen in enumerate(train_X):
+    test_lemma = '____' + test_sen[train_word_idx[test_idx]]
+    if all_senses.get(test_lemma, 'e') == 'e':
+        print(test_lemma)
+        print(test_sen)
+
+
+# In[21]:
+
+
+# debug
+# should print nothing 
+for test_idx, test_sen in enumerate(test_X):
+    test_lemma = '____' + test_sen[test_word_idx[test_idx]]
+    if all_test_senses.get(test_lemma, 'e') == 'e':
+        print(test_lemma)
+        print(test_sen)
+
+
+# In[22]:
 
 
 # test the model
-# modify to test only one word for now
 cos = nn.CosineSimilarity(dim = 1, eps = 1e-6).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 correct_count = 0
 known_test_size = 0
 unknown_test_size = 0
 unknown_correct_count = 0
 
+embds = []
+
 # overall accuracy
 for test_idx, test_sen in enumerate(test_X):
     
-    test_lemma = test_sen[test_word_idx[test_idx]]
+    test_lemma = '____' + test_sen[test_word_idx[test_idx]]
+        
+    # print(test_sen)
     test_emb = trainer._model.forward(test_sen, test_word_idx[test_idx]).view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+    # print(test_emb)
     all_similarity = []
+    # embds.append(test_emb)
     
     # if it is a new word
     # only test on the supersense
@@ -517,7 +611,7 @@ for test_idx, test_sen in enumerate(test_X):
                 best_sim = cos_sim
                 
         correct_super = []
-        for q, respon in test_Y[test_idx]:
+        for q, respon in enumerate(test_Y[test_idx]):
             if respon:
                 correct_s = wn.synset(all_test_senses[test_lemma][q]).lexname().replace('.', '_')
                 correct_super.append(correct_s)            
@@ -525,7 +619,7 @@ for test_idx, test_sen in enumerate(test_X):
             unknown_correct_count += 1
         
     else:
-        
+            
         # if it is a known word
         known_test_size += 1
         
