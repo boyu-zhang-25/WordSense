@@ -83,8 +83,18 @@ class Trainer(object):
 		if torch.cuda.device_count() > 1:
 			print("Let's use", torch.cuda.device_count(), "GPUs!")
 			self._model = nn.DataParallel(self._model)
+			self._model.dimension_reduction_MLP = nn.DataParallel(self._model.dimension_reduction_MLP)
+			self._model.layers = nn.DataParallel(self._model.layers)
+			self._model.wsd_lstm = nn.DataParallel(self._model.wsd_lstm)
+			self._model.definition_embeddings = nn.DataParallel(self._model.definition_embeddings)
+			self._model.supersense_embeddings = nn.DataParallel(self._model.supersense_embeddings)
 
 		self._model = self._model.to(self.device)
+		self._model.dimension_reduction_MLP = self._model.dimension_reduction_MLP.to(self.device)
+		self._model.layers = self._model.layers.to(self.device)
+		self._model.wsd_lstm = self._model.wsd_lstm.to(self.device)
+		self._model.definition_embeddings = self._model.definition_embeddings.to(self.device)
+		self._model.supersense_embeddings = self._model.supersense_embeddings.to(self.device)
 
 		print("#############   Model Parameters   ##############")
 		for name, param in self._model.named_parameters():     
