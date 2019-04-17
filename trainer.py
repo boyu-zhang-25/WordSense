@@ -163,12 +163,12 @@ class Trainer(object):
 				for i, response in enumerate(self.train_Y[idx]):
 
 					# slice the particular definition for gradient calculation
-					definition_vec = self._model.module.definition_embeddings[word_lemma][:, i].view(1, -1)
+					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
 						
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
-					supersense_vec = self._model.module.supersense_embeddings[supersense].view(1, -1)
+					supersense_vec = self._model.supersense_embeddings[supersense].view(1, -1)
 
 					if response:
 
@@ -263,12 +263,12 @@ class Trainer(object):
 				for i, response in enumerate(dev_Y[idx]):
 
 					# slice the particular definition for gradient calculation
-					definition_vec = self._model.module.definition_embeddings[word_lemma][:, i].view(1, -1)
+					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
 						
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
-					supersense_vec = self._model.module.supersense_embeddings[supersense].view(1, -1)
+					supersense_vec = self._model.supersense_embeddings[supersense].view(1, -1)
 
 					y_ = torch.ones(1).to(self.device)
 					y_neg = -torch.ones(1).to(self.device)
