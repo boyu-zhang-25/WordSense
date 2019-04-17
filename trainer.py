@@ -90,11 +90,11 @@ class Trainer(object):
 			self._model.supersense_embeddings = nn.DataParallel(self._model.module.supersense_embeddings)
 
 		self._model = self._model.to(self.device)
-		self._model.dimension_reduction_MLP = self._model.module.dimension_reduction_MLP.to(self.device)
-		self._model.layers = self._model.module.layers.to(self.device)
-		self._model.wsd_lstm = self._model.module.wsd_lstm.to(self.device)
-		self._model.definition_embeddings = self._model.module.definition_embeddings.to(self.device)
-		self._model.supersense_embeddings = self._model.module.supersense_embeddings.to(self.device)
+		# self._model.dimension_reduction_MLP = self._model.module.dimension_reduction_MLP.to(self.device)
+		# self._model.layers = self._model.module.layers.to(self.device)
+		# self._model.wsd_lstm = self._model.module.wsd_lstm.to(self.device)
+		# self._model.definition_embeddings = self._model.module.definition_embeddings.to(self.device)
+		# self._model.supersense_embeddings = self._model.module.supersense_embeddings.to(self.device)
 
 		print("#############   Model Parameters   ##############")
 		for name, param in self._model.named_parameters():     
