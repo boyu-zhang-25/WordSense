@@ -117,7 +117,7 @@ class Trainer(object):
 			batch_losses = []
 
 			# Turn on training mode which enables dropout.
-			self._model.train()			
+			# self._model.train()			
 			tqdm.write("[Epoch: {}/{}]".format((epoch + 1), self.epochs))
 			
 			# time print
