@@ -152,7 +152,6 @@ class Trainer(object):
 
 				# model output
 				sense_vec = self._model.forward(sentence, word_idx)
-				print(sense_vec.type())
 				# print(sense_vec)
 				# s_list.append(sense_vec)
 
