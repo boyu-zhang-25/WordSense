@@ -82,7 +82,7 @@ class Trainer(object):
 
 		if torch.cuda.device_count() > 1:
 			print("Let's use", torch.cuda.device_count(), "GPUs!")
-			self._model = nn.DataParallel(self._model)
+			# self._model = nn.DataParallel(self._model)
 			self._model.dimension_reduction_MLP = nn.DataParallel(self._model.module.dimension_reduction_MLP)
 			self._model.layers = nn.DataParallel(self._model.module.layers)
 			self._model.wsd_lstm = nn.DataParallel(self._model.module.wsd_lstm)
