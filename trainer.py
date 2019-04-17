@@ -23,6 +23,7 @@ from nltk.corpus import wordnet as wn
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('Device: {}'.format(device))
+print(torch.cuda.device_count())
 
 class Trainer(object):
 
