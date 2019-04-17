@@ -194,11 +194,11 @@ class Model(nn.Module):
 
 		# Run a Bi-LSTM and get the sense embedding
 		# (seq_len, batch, num_directions * hidden_size)
-		embedding_new, (hn, cn) = self.wsd_lstm(embedding)
+		# embedding_new, (hn, cn) = self.wsd_lstm(embedding)
 		# print('213: {}'.format(embedding_new.requires_grad))
 
 		# Extract the new word embedding by index
-		word_embedding = embedding_new[word_idx, :, :]
+		word_embedding = self.wsd_lstm(embedding)[0][word_idx, :, :]
 		# print('217: {}'.format(word_embedding.requires_grad))
 		# print(word_embedding)
 
