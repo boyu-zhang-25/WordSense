@@ -19,6 +19,7 @@ import numpy as np
 # In[2]:
 
 
+'''
 from torch.nn import CosineEmbeddingLoss
 l = torch.nn.CosineEmbeddingLoss()
 cs = torch.nn.CosineSimilarity(dim = 1)
@@ -35,6 +36,7 @@ print(1 - ang(v1[0], v2[0]))
 y = torch.ones(1)
 print(l(v1, v2, y).item())
 print(1 - cs(v1, v2))
+'''
 
 
 # In[3]:
@@ -227,15 +229,6 @@ def get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data):
 all_senses, all_definitions, all_supersenses, all_test_senses, all_test_definitions = get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data)
 
 
-# In[7]:
-
-
-print(all_senses['____a'])
-print(all_senses['____2'])
-print(all_definitions['____20'])
-print(all_definitions['____aa'])
-
-
 # In[8]:
 
 
@@ -411,7 +404,20 @@ def read_file():
 # get all the structured data
 train_X, train_Y, test_X, test_Y, dev_X, dev_Y, train_word_idx, test_word_idx, dev_word_idx = read_file()
 
-# test on one word
+print('num of training examples: {}'.format(len(train_X)))
+print('num of dev examples: {}'.format(len(dev_X)))
+print('num of testing examples: {}'.format(len(test_X)))
+
+# test on small subset
+train_X = train_X[:10000]
+train_Y = train_Y[:10000]
+train_word_idx = train_word_idx[:10000]
+dev_X = dev_X[:1000]
+dev_Y = dev_Y[:1000]
+dev_word_idx = dev_word_idx[:1000]
+test_X = test_X[:1000]
+test_Y = test_Y[:1000]
+test_word_idx = test_word_idx[:1000]
 '''
 word_choice = 'level'
 
@@ -492,7 +498,7 @@ elmo = ElmoEmbedder()
 
 
 # trainer
-epochs = 5
+epochs = 1
 
 # test on one word
 trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
@@ -509,7 +515,7 @@ train_losses, dev_losses, dev_rs = trainer.train(train_X, train_Y, train_word_id
 # train_losses, dev_losses, dev_rs = trainer.train(new_train_X, new_train_Y, new_train_idx, new_dev_X, new_dev_Y, new_dev_idx)
 
 
-# In[14]:
+# In[ ]:
 
 
 # plot the learning curve
@@ -529,7 +535,7 @@ with open('dev_loss.tsv', mode = 'w') as loss_file:
     csv_writer.writerow(dev_losses)
 
 
-# In[15]:
+# In[ ]:
 
 
 plt.figure(1)
@@ -546,7 +552,7 @@ plt.tight_layout()
 plt.savefig('train_loss.png')
 
 
-# In[16]:
+# In[ ]:
 
 
 plt.figure(2)
@@ -563,12 +569,12 @@ plt.tight_layout()
 plt.savefig('dev_loss.png')
 
 
-# In[17]:
+# In[ ]:
 
 
 # debug
 # should print nothing
-print('train')
+print('train debug')
 for test_idx, test_sen in enumerate(train_X):
     test_lemma = '____' + test_sen[train_word_idx[test_idx]]
     emb_length = len(all_senses.get(test_lemma))
@@ -578,12 +584,12 @@ for test_idx, test_sen in enumerate(train_X):
         print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
 
 
-# In[23]:
+# In[ ]:
 
 
 # debug
 
-print('test')
+print('test debug')
 for test_idx, test_sen in enumerate(test_X):
     test_lemma = '____' + test_sen[test_word_idx[test_idx]]
     emb_length = len(all_test_senses.get(test_lemma))
@@ -593,12 +599,12 @@ for test_idx, test_sen in enumerate(test_X):
         print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
 
 
-# In[24]:
+# In[ ]:
 
 
 # debug
 
-print('dev')
+print('dev debug')
 for test_idx, test_sen in enumerate(dev_X):
     test_lemma = '____' + test_sen[dev_word_idx[test_idx]]
     emb_length = len(all_senses.get(test_lemma))
@@ -608,12 +614,12 @@ for test_idx, test_sen in enumerate(dev_X):
         print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
 
 
-# In[25]:
+# In[ ]:
 
 
 # debug
 # should print nothing 
-print('train')
+print('train debug')
 for test_idx, test_sen in enumerate(train_X):
     test_lemma = '____' + test_sen[train_word_idx[test_idx]]
     if all_senses.get(test_lemma, 'e') == 'e':
@@ -621,12 +627,12 @@ for test_idx, test_sen in enumerate(train_X):
         print(test_sen)
 
 
-# In[26]:
+# In[ ]:
 
 
 # debug
 # should print nothing 
-print('test')
+print('test debug')
 for test_idx, test_sen in enumerate(test_X):
     test_lemma = '____' + test_sen[test_word_idx[test_idx]]
     if all_test_senses.get(test_lemma, 'e') == 'e':
@@ -634,7 +640,7 @@ for test_idx, test_sen in enumerate(test_X):
         print(test_sen)
 
 
-# In[22]:
+# In[ ]:
 
 
 # test the model
