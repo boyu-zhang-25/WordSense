@@ -85,7 +85,7 @@ class Trainer(object):
 			self._model = nn.DataParallel(self._model)
 			self._model.dimension_reduction_MLP = nn.DataParallel(self._model.module.dimension_reduction_MLP)
 			self._model.layers = nn.DataParallel(self._model.module.layers)
-			self._model.wsd_lstm = nn.DataParallel(self._model.wsd_lstm)
+			self._model.wsd_lstm = nn.DataParallel(self._model.module.wsd_lstm)
 			self._model.definition_embeddings = nn.DataParallel(self._model.module.definition_embeddings)
 			self._model.supersense_embeddings = nn.DataParallel(self._model.module.supersense_embeddings)
 
