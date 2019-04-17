@@ -164,8 +164,8 @@ class Trainer(object):
 
 					# slice the particular definition for gradient calculation
 					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
-					print(definition_vec.type())
-					
+					# print(sense_vec.type())
+
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
