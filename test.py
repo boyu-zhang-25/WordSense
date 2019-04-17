@@ -498,7 +498,7 @@ elmo = ElmoEmbedder()
 
 
 # trainer
-epochs = 1
+epochs = 10
 
 # test on one word
 trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
@@ -571,7 +571,7 @@ plt.savefig('dev_loss.png')
 
 # In[ ]:
 
-
+'''
 # debug
 # should print nothing
 print('train debug')
@@ -638,7 +638,7 @@ for test_idx, test_sen in enumerate(test_X):
     if all_test_senses.get(test_lemma, 'e') == 'e':
         print(test_lemma)
         print(test_sen)
-
+'''
 
 # In[ ]:
 

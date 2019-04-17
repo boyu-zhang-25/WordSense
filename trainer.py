@@ -290,7 +290,7 @@ class Trainer(object):
 				dev_losses.append(dev_loss)
 
 			else:
-				print('new word in dev: {}\n sentence:{}'.format(word_lemma, sentence))
+				# print('new word in dev: {}\n sentence:{}'.format(word_lemma, sentence))
 				# dev_losses.append(-1)
 
 		return dev_losses
