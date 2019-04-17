@@ -492,7 +492,7 @@ elmo = ElmoEmbedder()
 
 
 # trainer
-epochs = 50
+epochs = 5
 
 # test on one word
 trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
@@ -668,7 +668,7 @@ for test_idx, test_sen in enumerate(test_X):
         for n, new_s in enumerate(all_test_senses[test_lemma]):
             
             new_super = wn.synset(new_s).lexname().replace('.', '_')
-            super_vec = trainer._model.supersense_embeddings[new_super].view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+            super_vec = trainer._model.module.supersense_embeddings[new_super].view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             cos_sim = cos(test_emb, super_vec)
             
             if cos_sim > best_sim:
@@ -689,7 +689,7 @@ for test_idx, test_sen in enumerate(test_X):
         known_test_size += 1
         
         for k, sense in enumerate(all_senses[test_lemma]):
-            definition_vec = trainer._model.definition_embeddings[test_lemma][:, k].view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+            definition_vec = trainer._model.module.definition_embeddings[test_lemma][:, k].view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
             cos_sim = cos(test_emb, definition_vec)
             all_similarity.append(cos_sim)
         # print(all_similarity)
