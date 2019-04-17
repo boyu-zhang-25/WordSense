@@ -82,19 +82,19 @@ class Trainer(object):
 
 		if torch.cuda.device_count() > 1:
 			print("Let's use", torch.cuda.device_count(), "GPUs!")
-			# self._model = nn.DataParallel(self._model)
+			self._model = nn.DataParallel(self._model)
 			self._model.dimension_reduction_MLP = nn.DataParallel(self._model.module.dimension_reduction_MLP)
 			self._model.layers = nn.DataParallel(self._model.module.layers)
 			self._model.wsd_lstm = nn.DataParallel(self._model.module.wsd_lstm)
-			# self._model.definition_embeddings = nn.DataParallel(self._model.module.definition_embeddings)
-			# self._model.supersense_embeddings = nn.DataParallel(self._model.module.supersense_embeddings)
+			self._model.definition_embeddings = nn.DataParallel(self._model.module.definition_embeddings)
+			self._model.supersense_embeddings = nn.DataParallel(self._model.module.supersense_embeddings)
 
 		self._model = self._model.to(self.device)
-		self._model.dimension_reduction_MLP = self._model.dimension_reduction_MLP.to(self.device)
-		self._model.layers = self._model.layers.to(self.device)
-		self._model.wsd_lstm = self._model.wsd_lstm.to(self.device)
-		self._model.definition_embeddings = self._model.definition_embeddings.to(self.device)
-		self._model.supersense_embeddings = self._model.supersense_embeddings.to(self.device)
+		self._model.dimension_reduction_MLP = self._model.module.dimension_reduction_MLP.to(self.device)
+		self._model.layers = self._model.module.layers.to(self.device)
+		self._model.wsd_lstm = self._model.module.wsd_lstm.to(self.device)
+		self._model.definition_embeddings = self._model.module.definition_embeddings.to(self.device)
+		self._model.supersense_embeddings = self._model.module.supersense_embeddings.to(self.device)
 
 		print("#############   Model Parameters   ##############")
 		for name, param in self._model.named_parameters():     
@@ -152,6 +152,7 @@ class Trainer(object):
 
 				# model output
 				sense_vec = self._model.forward(sentence, word_idx)
+				print(sense_vec.type())
 				# print(sense_vec)
 				# s_list.append(sense_vec)
 
@@ -163,12 +164,12 @@ class Trainer(object):
 				for i, response in enumerate(self.train_Y[idx]):
 
 					# slice the particular definition for gradient calculation
-					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
+					definition_vec = self._model.module.definition_embeddings[word_lemma][:, i].view(1, -1)
 						
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
-					supersense_vec = self._model.supersense_embeddings[supersense].view(1, -1)
+					supersense_vec = self._model.module.supersense_embeddings[supersense].view(1, -1)
 
 					if response:
 
@@ -263,12 +264,12 @@ class Trainer(object):
 				for i, response in enumerate(dev_Y[idx]):
 
 					# slice the particular definition for gradient calculation
-					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
+					definition_vec = self._model.module.definition_embeddings[word_lemma][:, i].view(1, -1)
 						
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
-					supersense_vec = self._model.supersense_embeddings[supersense].view(1, -1)
+					supersense_vec = self._model.module.supersense_embeddings[supersense].view(1, -1)
 
 					y_ = torch.ones(1).to(self.device)
 					y_neg = -torch.ones(1).to(self.device)
