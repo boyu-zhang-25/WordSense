@@ -152,7 +152,7 @@ class Trainer(object):
 
 				# model output
 				sense_vec = self._model.forward(sentence, word_idx)
-				print(sense_vec.type())
+				# print(sense_vec.type())
 				# s_list.append(sense_vec)
 
 				# calculate loss pair-wise: sense vector and definition vector
@@ -164,7 +164,8 @@ class Trainer(object):
 
 					# slice the particular definition for gradient calculation
 					definition_vec = self._model.definition_embeddings[word_lemma][:, i].view(1, -1)
-						
+					print(definition_vec.type())
+					
 					# find the supersense
 					synset = self.all_senses[word_lemma][i]
 					supersense = wn.synset(synset).lexname().replace('.', '_')
