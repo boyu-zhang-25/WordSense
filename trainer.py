@@ -78,6 +78,11 @@ class Trainer(object):
 	def _initialize_trainer_model(self):
 		# print(len(self.all_senses.keys()))
 		self._model = Model(device = self.device, all_senses = self.all_senses, elmo_class = self.elmo_class, all_supersenses = self.all_supersenses)
+
+		if torch.cuda.device_count() > 1:
+			print("Let's use", torch.cuda.device_count(), "GPUs!")
+			self._model = nn.DataParallel(self._model)
+
 		self._model = self._model.to(self.device)
 
 		print("#############   Model Parameters   ##############")
@@ -158,25 +163,28 @@ class Trainer(object):
 
 						# if annotator response is True: increase the cosine similarity
 						# loss between sense embeddings and the definition embeddings
-						loss += self.loss(sense_vec, definition_vec, torch.ones(1).to(self.device))
+						y_ = torch.ones(1).to(self.device)
+						loss += self.loss(sense_vec, definition_vec, y_)
 
 						# loss between the supersense and the sensen embeddings
-						loss += self.loss(sense_vec, supersense_vec, torch.ones(1).to(self.device))
+						loss += self.loss(sense_vec, supersense_vec, y_)
 
 						# loss between the supersense and the definition embeddings
 						# they should always be similar
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, y_)
 
 					else:
 
 						# if annotator response is False
 						# decrease the cosine similarity
-						loss += self.loss(sense_vec, definition_vec, -torch.ones(1).to(self.device))
-						loss += self.loss(sense_vec, supersense_vec, -torch.ones(1).to(self.device))
+						y_ = torch.ones(1).to(self.device)
+						y_neg = -torch.ones(1).to(self.device)
+						loss += self.loss(sense_vec, definition_vec, y_neg)
+						loss += self.loss(sense_vec, supersense_vec, y_neg)
 
 						# loss between the supersense and the definition embeddings
 						# they should always be similar
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
+						loss += self.loss(definition_vec, supersense_vec, y_)
 
 				# individual definition tensor gradient update
 				# also backprop the accumulative loss for the predicted sense embeddings
@@ -251,15 +259,19 @@ class Trainer(object):
 					supersense = wn.synset(synset).lexname().replace('.', '_')
 					supersense_vec = self._model.supersense_embeddings[supersense].view(1, -1)
 
+					y_ = torch.ones(1).to(self.device)
+					y_neg = -torch.ones(1).to(self.device)
+
 					if response:
-						loss += self.loss(sense_vec, definition_vec, torch.ones(1).to(self.device))
-						loss += self.loss(sense_vec, supersense_vec, torch.ones(1).to(self.device))
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
+
+						loss += self.loss(sense_vec, definition_vec, y_)
+						loss += self.loss(sense_vec, supersense_vec, y_)
+						loss += self.loss(definition_vec, supersense_vec, y_)
 
 					else:
-						loss += self.loss(sense_vec, definition_vec, -torch.ones(1).to(self.device))
-						loss += self.loss(sense_vec, supersense_vec, -torch.ones(1).to(self.device))
-						loss += self.loss(definition_vec, supersense_vec, torch.ones(1).to(self.device))
+						loss += self.loss(sense_vec, definition_vec, y_neg)
+						loss += self.loss(sense_vec, supersense_vec, y_neg)
+						loss += self.loss(definition_vec, supersense_vec, y_)
 
 				# record training loss for each example
 				dev_loss = loss.detach().item()
