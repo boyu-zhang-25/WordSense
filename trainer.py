@@ -291,7 +291,7 @@ class Trainer(object):
 
 			else:
 				# print('new word in dev: {}\n sentence:{}'.format(word_lemma, sentence))
-				# dev_losses.append(-1)
-				
+				dev_losses.append(0)
+
 		return dev_losses
 
