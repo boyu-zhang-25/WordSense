@@ -229,7 +229,7 @@ def get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data):
 all_senses, all_definitions, all_supersenses, all_test_senses, all_test_definitions = get_all_senses_and_definitions(wsd_data, train_data, test_data, dev_data)
 
 
-# In[8]:
+# In[7]:
 
 
 # test for the WordNet NLTK API
@@ -250,7 +250,7 @@ for _ in wn.synsets('spring'):
 '''
 
 
-# In[9]:
+# In[8]:
 
 
 # read the train, dev, test datasets from processed files
@@ -398,93 +398,66 @@ def read_file():
     return train_X, train_Y, test_X, test_Y, dev_X, dev_Y, train_word_idx, test_word_idx, dev_word_idx
 
 
-# In[10]:
+# In[38]:
 
 
 # get all the structured data
 train_X, train_Y, test_X, test_Y, dev_X, dev_Y, train_word_idx, test_word_idx, dev_word_idx = read_file()
 
-print('num of training examples: {}'.format(len(train_X)))
-print('num of dev examples: {}'.format(len(dev_X)))
-print('num of testing examples: {}'.format(len(test_X)))
+# print('num of training examples: {}'.format(len(train_X)))
+# print('num of dev examples: {}'.format(len(dev_X)))
+# print('num of testing examples: {}'.format(len(test_X)))
 
 # test on small subset
 train_X = train_X[:10000]
 train_Y = train_Y[:10000]
 train_word_idx = train_word_idx[:10000]
-dev_X = dev_X[:1000]
-dev_Y = dev_Y[:1000]
-dev_word_idx = dev_word_idx[:1000]
-test_X = test_X[:1000]
-test_Y = test_Y[:1000]
-test_word_idx = test_word_idx[:1000]
-'''
-word_choice = 'level'
 
-new_train_X = []
-new_train_Y = []
-new_train_idx = []
-distri_train = np.zeros(len(all_test_senses[word_choice]))
-# stst = 0
+
+# all vocab in the 10000 sentences
+vocab = set()
 for index, sen in enumerate(train_X):
-    
-    if sen[train_word_idx[index]] == word_choice:
-        new_train_idx.append(train_word_idx[index])
-        new_train_X.append(sen)
-        new_train_Y.append(train_Y[index])
-        distri_train += np.asarray(train_Y[index])
-        # summ = train_Y[index][0] + train_Y[index][1]
-        # if summ != 2:
-            # stst += 1
-# print('stst: {}'.format(stst))        
-print('distri of train: {}'.format(distri_train))
-        
-new_test_X = []
-new_test_Y = []
-new_test_idx = []
-distri_test = np.zeros(len(all_test_senses[word_choice]))
-for index, sen in enumerate(test_X):
-    
-    if sen[test_word_idx[index]] == word_choice:
-        new_test_idx.append(test_word_idx[index])
-        new_test_X.append(sen)
-        new_test_Y.append(test_Y[index])
-        # print(test_Y[index])
-        distri_test += np.asarray(test_Y[index])
-print('distri of test: {}'.format(distri_test))
+    word = sen[train_word_idx[index]]
+    if word not in vocab and ('____' + word) in all_senses.keys():
+        vocab.add(word)
+print('number of known words: {}'.format(len(vocab)))
+print('number of train data: {}'.format(len(train_X)))
 
+# filter the dev set
 new_dev_X = []
 new_dev_Y = []
 new_dev_idx = []
-distri_dev = np.zeros(len(all_test_senses[word_choice]))
 for index, sen in enumerate(dev_X):
-        
-    if sen[dev_word_idx[index]] == word_choice:
+    word = sen[dev_word_idx[index]]
+    if word in vocab and ('____' + word) in all_senses.keys():
         new_dev_idx.append(dev_word_idx[index])
         new_dev_X.append(sen)
         new_dev_Y.append(dev_Y[index])
-        distri_dev += np.asarray(dev_Y[index])
-print('distri of dev: {}'.format(distri_dev))
+new_dev_X = new_dev_X[:2000]
+new_dev_Y = new_dev_Y[:2000]
+new_dev_idx = new_dev_idx[:2000]
 
-target_senses = all_senses[word_choice]
-new_all_senses = {word_choice : target_senses}
-target_def = all_definitions[word_choice]
-new_all_def = {word_choice : target_def}
+print('number of dev data: {}'.format(len(new_dev_X)))
 
-# limit the supersense to only the test word
-new_all_supersenses = {}
-for supersense in all_supersenses.keys():
-    for tuples in all_supersenses[supersense]:
-        
-        if tuples[0] == word_choice:
-            if new_all_supersenses.get(supersense, 'e') != 'e':
-                new_all_supersenses[supersense].add((word_choice, tuples[1]))
-            else:
-                new_all_supersenses[supersense] = {(word_choice, tuples[1])}
-'''
+# filter the test set
+new_test_idx = []
+new_test_X = []
+new_test_Y = []
+for index, sen in enumerate(test_X):
+    word = sen[test_word_idx[index]]
+    if word in vocab and ('____' + word) in all_senses.keys():
+        new_test_idx.append(test_word_idx[index])
+        new_test_X.append(sen)
+        new_test_Y.append(test_Y[index]) 
+    elif word not in all_senses.keys():
+        new_test_idx.append(test_word_idx[index])
+        new_test_X.append(sen)
+        new_test_Y.append(test_Y[index])        
+            
+print('number of test data: {}'.format(len(new_test_X)))
 
 
-# In[11]:
+# In[10]:
 
 
 from model import *
@@ -494,28 +467,28 @@ from allennlp.commands.elmo import ElmoEmbedder
 elmo = ElmoEmbedder()
 
 
-# In[12]:
+# In[11]:
 
 
 # trainer
-epochs = 10
+epochs = 30
 
 # test on one word
 trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = all_senses, all_supersenses = all_supersenses)
 # trainer = Trainer(epochs = epochs, elmo_class = elmo, all_senses = new_all_senses, all_supersenses = new_all_supersenses)
 
 
-# In[13]:
+# In[12]:
 
 
 # train the model
-train_losses, dev_losses, dev_rs = trainer.train(train_X, train_Y, train_word_idx, dev_X, dev_Y, dev_word_idx)
+# train_losses, dev_losses, dev_rs = trainer.train(train_X, train_Y, train_word_idx, dev_X, dev_Y, dev_word_idx)
 
-# small test on only one word
-# train_losses, dev_losses, dev_rs = trainer.train(new_train_X, new_train_Y, new_train_idx, new_dev_X, new_dev_Y, new_dev_idx)
+# small vocab
+train_losses, dev_losses, dev_rs = trainer.train(train_X, train_Y, train_word_idx, new_dev_X, new_dev_Y, new_dev_idx)
 
 
-# In[ ]:
+# In[13]:
 
 
 # plot the learning curve
@@ -535,7 +508,7 @@ with open('dev_loss.tsv', mode = 'w') as loss_file:
     csv_writer.writerow(dev_losses)
 
 
-# In[ ]:
+# In[14]:
 
 
 plt.figure(1)
@@ -552,7 +525,7 @@ plt.tight_layout()
 plt.savefig('train_loss.png')
 
 
-# In[ ]:
+# In[15]:
 
 
 plt.figure(2)
@@ -569,23 +542,8 @@ plt.tight_layout()
 plt.savefig('dev_loss.png')
 
 
-# In[ ]:
-
+# In[17]:
 '''
-# debug
-# should print nothing
-print('train debug')
-for test_idx, test_sen in enumerate(train_X):
-    test_lemma = '____' + test_sen[train_word_idx[test_idx]]
-    emb_length = len(all_senses.get(test_lemma))
-    y = len(train_Y[test_idx])
-    
-    if emb_length != y:
-        print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
-
-
-# In[ ]:
-
 
 # debug
 
@@ -599,7 +557,7 @@ for test_idx, test_sen in enumerate(test_X):
         print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
 
 
-# In[ ]:
+# In[18]:
 
 
 # debug
@@ -614,7 +572,7 @@ for test_idx, test_sen in enumerate(dev_X):
         print('lemma: {}, y: {}, emb: {}'.format(test_lemma, y, emb_length))
 
 
-# In[ ]:
+# In[19]:
 
 
 # debug
@@ -627,7 +585,7 @@ for test_idx, test_sen in enumerate(train_X):
         print(test_sen)
 
 
-# In[ ]:
+# In[20]:
 
 
 # debug
@@ -640,7 +598,7 @@ for test_idx, test_sen in enumerate(test_X):
         print(test_sen)
 '''
 
-# In[ ]:
+# In[44]:
 
 
 # test the model
@@ -653,12 +611,12 @@ unknown_correct_count = 0
 embds = []
 
 # overall accuracy
-for test_idx, test_sen in enumerate(test_X):
+for test_idx, test_sen in enumerate(new_test_X):
     
-    test_lemma = '____' + test_sen[test_word_idx[test_idx]]
+    test_lemma = '____' + test_sen[new_test_idx[test_idx]]
         
     # print(test_sen)
-    test_emb = trainer._model.forward(test_sen, test_word_idx[test_idx]).view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+    test_emb = trainer._model.forward(test_sen, new_test_idx[test_idx]).view(1, -1).to(torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     # print(test_emb)
     all_similarity = []
     # embds.append(test_emb)
@@ -682,7 +640,7 @@ for test_idx, test_sen in enumerate(test_X):
                 best_sim = cos_sim
                 
         correct_super = []
-        for q, respon in enumerate(test_Y[test_idx]):
+        for q, respon in enumerate(new_test_Y[test_idx]):
             if respon:
                 correct_s = wn.synset(all_test_senses[test_lemma][q]).lexname().replace('.', '_')
                 correct_super.append(correct_s)            
@@ -701,7 +659,7 @@ for test_idx, test_sen in enumerate(test_X):
         # print(all_similarity)
         test_result = all_similarity.index(max(all_similarity))
         # print("result index: {}".format(test_result))
-        if test_Y[test_idx][test_result] == 1:
+        if new_test_Y[test_idx][test_result] == 1:
             correct_count += 1
 
 print('test size for known words: {}'.format(known_test_size))
