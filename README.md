@@ -8,8 +8,7 @@ Please check the `demo.ipynb` for results so far.
 
 |Number of Epoch|Number of Training Data|Number of Dev Data|Accuracy for Known Words|Accuracy for Unknown Words (supersense level)|
 |---|---|---|---|---|
-| 10  | 1000 | 200-ish  |  36.7%  |  39.5% |
-| 22  | 10000 | 7000-ish  | 62.1%  | 69.3% |
+| 22  | 10000 | 7118 (both known and unknown words)  | 62.1% (out of 6440 known words)  | 69.3% (out of 678 unknown words)|
 
 
 # Supervisor and Authors
