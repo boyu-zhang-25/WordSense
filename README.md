@@ -10,6 +10,7 @@ Please check the `demo.ipynb` for results so far.
 |---|---|---|---|---|
 | 22  | 10000 | 7118 (both known and unknown words)  | 62.1% (out of 6440 known words)  | 69.5% (out of 678 unknown words)|
 
+Average Number of Senses for Ambiguous Word in the Dataset: 4.3
 
 # Supervisor and Authors
 
