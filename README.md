@@ -4,7 +4,13 @@ Code for the paper *Multi-Label Word Sense Tagging with Supersense Back-off*.
 
 ## Work in progress.
 
-Please check the `test.ipynb` for results so far. 
+Please check the `demo.ipynb` for results so far. 
+
+|Number of Epoch|Number of Training Data|Number of Dev Data|Accuracy for Known Words|Accuracy for Unknown Words (supersense level)|
+|---|---|---|---|---|
+| 10  | 1000 | 200-ish  |  36.7%  |  39.5% |
+| 20  | 10000 | 7000-ish  | 62.1%  | 69.3% |
+
 
 # Supervisor and Authors
 
