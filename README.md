@@ -4,11 +4,11 @@ Code for the paper *Multi-Label Word Sense Tagging with Supersense Back-off*.
 
 ## Work in progress.
 
-Please check the `demo.ipynb` for results so far. 
+Please check the `result` folder for the results (accuracies, model checkpoints, etc.) so far. 
 
 |Number of Epoch|Number of Training Data|Number of Dev Data|Accuracy for Known Words|Accuracy for Unknown Words (supersense level)|
 |---|---|---|---|---|
-| 22  | 10000 | 7118 (both known and unknown words)  | 62.1% (out of 6440 known words)  | 69.5% (out of 678 unknown words)|
+| 45  | 15000 | 7118 (both known and unknown words)  | 62.9% (out of 6440 known words)  | 70.8% (out of 678 unknown words)|
 
 Average Number of Senses for Ambiguous Word in the Dataset: 4.3
 
