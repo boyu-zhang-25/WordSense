@@ -1,8 +1,8 @@
 # Word Sense Tagging Over Continuous Space with Supersense Back-off
 
-## This project is a part of the upcoming TACL paper *Decoding Word Sense with Tree LSTM*
+**This project is a part of the upcoming TACL paper *Decoding Word Sense with Tree LSTM*.**
 
-Please check the `result` folder for the results (accuracies, model checkpoints, etc.) so far. 
+**Please check the `abstract.pdf` for the model design, test results, and other details.**
 
 |Number of Epoch|Number of Training Data|Number of Dev Data|Accuracy for Known Words|Accuracy for Unknown Words (supersense level)|
 |---|---|---|---|---|
@@ -17,8 +17,6 @@ The average number of senses for an ambiguous word in the dataset: 4.3
 [The Formal And CompuTational Semantics lab (FACTS.lab)](http://factslab.io/)
 
 University of Rochester
-
-# Please check the `abstract.pdf` for the model design, test results, and other details. 
 
 # Requirements
 
