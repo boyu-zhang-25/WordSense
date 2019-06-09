@@ -16,7 +16,9 @@ The average number of senses for an ambiguous word in the dataset: 4.3
 
 [The Formal And CompuTational Semantics lab (FACTS.lab)](http://factslab.io/)
 
-University of Rochester
+University of Rochester, Spring 2019
+
+I am glad and greatful that my course project can be this interesting!!
 
 # Requirements
 

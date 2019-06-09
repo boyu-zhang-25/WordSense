@@ -204,9 +204,9 @@ class Model(nn.Module):
 		# print(word_embedding)
 
 		# Run fine-tuning MLP on new word embedding and get sense embedding
-		# batch_size words, each has length 10 for 10 possible senses
 		sense_embedding = self._run_fine_tune_MLP(word_embedding, word_lemma, param = 'word_sense')
 		sense_embedding = sense_embedding.view(1, -1)
+
 		# print('223: {}'.format(sense_embedding.requires_grad))
 		# print(sense_embedding)
 		return sense_embedding
