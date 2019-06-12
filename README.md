@@ -4,6 +4,8 @@
 
 **Please check the `abstract.pdf` for the model design, test results, and other details.**
 
+**I have a updated version of senses encoder (more efficient, supports batch) for my new project in-progress. If you are interested, please feel free to contact me**
+
 |Number of Epoch|Number of Training Data|Number of Dev Data|Accuracy for Known Words|Accuracy for Unknown Words (supersense level)|
 |---|---|---|---|---|
 | 45  | 15000 | 7118 (both known and unknown words)  | 62.9% (out of 6440 known words)  | 70.8% (out of 678 unknown words)|
