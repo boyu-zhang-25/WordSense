@@ -4,7 +4,7 @@
 
 **Please check the `abstract.pdf` for the model design, test results, and other details.**
 
-**I have a updated version of senses encoder (more efficient, supports batch) for my new project in-progress. If you are interested, please feel free to contact me**
+**I have a updated version of senses encoder (more efficient, supports batch) for my new project in-progress. And it also uses to the SemCor + OMNIST WSD dataset. If you are interested, please feel free to contact me**
 
 |Number of Epoch|Number of Training Data|Number of Dev Data|Accuracy for Known Words|Accuracy for Unknown Words (supersense level)|
 |---|---|---|---|---|
