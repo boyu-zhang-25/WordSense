@@ -1,7 +1,5 @@
 # Word Sense Tagging Over Continuous Space with Supersense Back-off
 
-**This project is a part of the upcoming TACL paper *Decoding Word Sense with Tree LSTM*.**
-
 **Please check the `abstract.pdf` for the model design, test results, and other details.**
 
 **I have a updated version of senses encoder (more efficient, supports batch) for my new project in-progress. And it also uses to the SemCor + OMNIST WSD dataset. If you are interested, please feel free to contact me**
